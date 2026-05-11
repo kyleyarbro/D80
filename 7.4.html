@@ -1,0 +1,3249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>D80 Systems — WIP + Ops Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080a0c;
+    --surface: #0e1114;
+    --surface2: #141820;
+    --border: #1e2530;
+    --border2: #252d3a;
+    --orange: #e07b2a;
+    --orange-dim: #7a3f10;
+    --green: #2ecc71;
+    --green-dim: #1a5c38;
+    --red: #e74c3c;
+    --red-dim: #6b1f1a;
+    --yellow: #f1c40f;
+    --yellow-dim: #6b560a;
+    --blue: #3498db;
+    --text: #d4dbe8;
+    --text-dim: #6b7a8d;
+    --text-muted: #3a4455;
+    --mono: 'Share Tech Mono', monospace;
+    --display: 'Barlow Condensed', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); font-family: var(--mono); min-height: 100vh; overflow-x: hidden; }
+
+  body::before {
+    content: '';
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none; z-index: 9999;
+  }
+
+  .header {
+    background: var(--surface);
+    border-bottom: 2px solid var(--orange);
+    padding: 12px 16px;
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .header-left { display: flex; flex-direction: column; gap: 1px; }
+  .header-company { font-family: var(--display); font-size: 11px; font-weight: 700; color: var(--orange); letter-spacing: 3px; text-transform: uppercase; }
+  .header-title { font-family: var(--display); font-size: 22px; font-weight: 900; color: var(--text); letter-spacing: 1px; line-height: 1; }
+  .header-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .breadcrumb {
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--text-dim); overflow-x: auto; white-space: nowrap;
+    scrollbar-width: none;
+  }
+  .breadcrumb::-webkit-scrollbar { display: none; }
+  .crumb { cursor: pointer; color: var(--orange); transition: opacity 0.15s; }
+  .crumb:hover { opacity: 0.7; }
+  .crumb-sep { color: var(--text-muted); }
+  .crumb-current { color: var(--text-dim); }
+
+  .main { padding: 16px; max-width: 800px; margin: 0 auto; }
+
+  .section-label {
+    font-size: 10px; letter-spacing: 3px; color: var(--text-muted);
+    text-transform: uppercase; margin-bottom: 12px; padding-left: 2px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    overflow: hidden;
+  }
+  .card:hover { border-color: var(--orange); background: var(--surface2); }
+  .card:active { opacity: 0.85; }
+  .card-inner { padding: 14px 16px; }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .card-name { font-family: var(--display); font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: 0.5px; }
+  .card-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .card-badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 3px; letter-spacing: 1px; white-space: nowrap; }
+  .badge-complete { background: var(--green-dim); color: var(--green); border: 1px solid var(--green); }
+  .badge-active { background: rgba(224,123,42,0.15); color: var(--orange); border: 1px solid var(--orange-dim); }
+  .badge-pending { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
+
+  .progress-row { display: flex; align-items: center; gap: 10px; }
+  .progress-bar { flex: 1; height: 6px; background: var(--border2); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+  .progress-pct { font-size: 12px; font-weight: 700; min-width: 38px; text-align: right; }
+
+  .phase-dots { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+  .phase-dot {
+    font-size: 10px; padding: 2px 7px; border-radius: 2px;
+    background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border);
+    letter-spacing: 0.5px;
+  }
+  .phase-dot.done { background: var(--green-dim); color: var(--green); border-color: var(--green-dim); }
+  .phase-dot.partial { background: rgba(224,123,42,0.12); color: var(--orange); border-color: var(--orange-dim); }
+
+  .btn-add {
+    width: 100%; padding: 12px; background: transparent;
+    border: 1px dashed var(--border2); border-radius: 6px;
+    color: var(--text-muted); font-family: var(--mono); font-size: 13px;
+    cursor: pointer; transition: all 0.15s; letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+  .btn-add:hover { border-color: var(--orange); color: var(--orange); background: rgba(224,123,42,0.05); }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    display: flex; align-items: flex-end; z-index: 200;
+    animation: fadeIn 0.15s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 12px 12px 0 0;
+    padding: 20px 16px 32px;
+    width: 100%; max-width: 800px; margin: 0 auto;
+    max-height: 90vh; overflow-y: auto;
+    animation: slideUp 0.2s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-title { font-family: var(--display); font-size: 20px; font-weight: 900; color: var(--text); margin-bottom: 16px; }
+  .modal-label { font-size: 11px; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 6px; display: block; }
+  .modal-input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border2); border-radius: 4px;
+    color: var(--text); font-family: var(--mono); font-size: 14px;
+    padding: 10px 12px; margin-bottom: 14px; outline: none;
+    transition: border-color 0.15s;
+  }
+  .modal-input:focus { border-color: var(--orange); }
+  .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .btn-primary {
+    width: 100%; padding: 12px; background: var(--orange);
+    border: none; border-radius: 5px; color: #fff;
+    font-family: var(--display); font-size: 16px; font-weight: 700;
+    cursor: pointer; letter-spacing: 1px; transition: opacity 0.15s;
+    margin-top: 4px;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-cancel {
+    width: 100%; padding: 11px; background: transparent;
+    border: 1px solid var(--border2); border-radius: 5px; color: var(--text-dim);
+    font-family: var(--mono); font-size: 13px; cursor: pointer;
+    margin-top: 8px; letter-spacing: 1px;
+  }
+
+  .device-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .device-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; cursor: pointer;
+  }
+  .device-header:hover { background: var(--surface2); }
+  .device-num { font-size: 11px; color: var(--text-muted); min-width: 28px; }
+  .device-type { font-family: var(--display); font-size: 15px; font-weight: 700; flex: 1; color: var(--text); }
+  .device-location { font-size: 11px; color: var(--text-dim); flex: 1; }
+
+  .stages { display: flex; gap: 4px; flex-wrap: wrap; padding: 0 12px 10px; }
+  .stage-pill {
+    font-size: 10px; padding: 4px 9px; border-radius: 3px; cursor: pointer;
+    border: 1px solid var(--border2); background: var(--surface2); color: var(--text-muted);
+    transition: all 0.12s; letter-spacing: 0.5px; user-select: none;
+  }
+  .stage-pill.done { background: var(--green-dim); color: var(--green); border-color: var(--green); }
+  .stage-pill.s0.done { background: rgba(52,152,219,0.15); color: var(--blue); border-color: var(--blue); }
+  .stage-pill.s1.done { background: rgba(224,123,42,0.15); color: var(--orange); border-color: var(--orange); }
+  .stage-pill.s2.done { background: rgba(241,196,15,0.15); color: var(--yellow); border-color: var(--yellow); }
+  .stage-pill.s3.done { background: rgba(155,89,182,0.2); color: #a569bd; border-color: #7d3c98; }
+  .stage-pill.s4.done { background: var(--green-dim); color: var(--green); border-color: var(--green); }
+
+  .device-notes { padding: 0 12px 10px; }
+  .note-input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text-dim); font-family: var(--mono);
+    font-size: 12px; padding: 8px 10px; resize: vertical; outline: none;
+    transition: border-color 0.15s; min-height: 52px;
+  }
+  .note-input:focus { border-color: var(--orange); }
+  .note-label { font-size: 10px; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 4px; }
+
+  .btn-delete {
+    background: transparent; border: none; color: var(--text-muted);
+    cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 3px;
+    transition: color 0.15s;
+  }
+  .btn-delete:hover { color: var(--red); }
+
+  .stats-row { display: flex; gap: 8px; margin-bottom: 16px; }
+  .stat-box {
+    flex: 1; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 5px; padding: 10px; text-align: center;
+  }
+  .stat-val { font-family: var(--display); font-size: 24px; font-weight: 900; }
+  .stat-lbl { font-size: 9px; color: var(--text-muted); letter-spacing: 2px; margin-top: 2px; }
+
+  .empty { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 13px; line-height: 1.8; }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .confirm-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+    display: flex; align-items: center; justify-content: center; z-index: 300;
+  }
+  .confirm-box {
+    background: var(--surface); border: 1px solid var(--red);
+    border-radius: 8px; padding: 24px 20px; width: 300px; text-align: center;
+  }
+  .confirm-title { font-family: var(--display); font-size: 18px; font-weight: 700; color: var(--red); margin-bottom: 8px; }
+  .confirm-msg { font-size: 12px; color: var(--text-dim); margin-bottom: 20px; line-height: 1.6; }
+  .confirm-btns { display: flex; gap: 10px; }
+  .btn-confirm-yes { flex: 1; padding: 10px; background: var(--red); border: none; border-radius: 4px; color: #fff; font-family: var(--display); font-size: 15px; font-weight: 700; cursor: pointer; }
+  .btn-confirm-no { flex: 1; padding: 10px; background: transparent; border: 1px solid var(--border2); border-radius: 4px; color: var(--text-dim); font-family: var(--mono); font-size: 12px; cursor: pointer; }
+
+  .icon-btn {
+    background: transparent; border: 1px solid var(--border2); border-radius: 4px;
+    color: var(--text-dim); cursor: pointer; padding: 6px 10px; font-size: 14px;
+    transition: all 0.15s;
+  }
+  .icon-btn:hover { border-color: var(--orange); color: var(--orange); }
+
+  .app-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .app-tab {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    color: var(--text-dim);
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    padding: 11px 12px;
+    cursor: pointer;
+    text-align: center;
+  }
+  .app-tab.active {
+    color: var(--orange);
+    border-color: var(--orange);
+    background: rgba(224,123,42,.08);
+  }
+  .ops-clean-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .ops-clean-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 14px;
+  }
+  .ops-clean-title {
+    font-family: var(--display);
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .ops-clean-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+  .ops-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .ops-kpi {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 10px 8px;
+    text-align: center;
+  }
+  .ops-kpi-num {
+    font-family: var(--display);
+    font-size: 26px;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .ops-kpi-label {
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 1.5px;
+    margin-top: 4px;
+  }
+  .ops-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .ops-tab {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: .7px;
+    padding: 8px 4px;
+    cursor: pointer;
+    text-align: center;
+  }
+  .ops-tab.active {
+    color: var(--orange);
+    border-color: var(--orange);
+    background: rgba(224,123,42,.08);
+  }
+  .ops-action-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .ops-action {
+    background: transparent;
+    border: 1px dashed var(--border2);
+    border-radius: 5px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 10px;
+    cursor: pointer;
+    letter-spacing: .5px;
+  }
+  .ops-action:hover {
+    color: var(--orange);
+    border-color: var(--orange);
+    background: rgba(224,123,42,.05);
+  }
+  .ops-list { margin-bottom: 14px; }
+  .ops-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 11px 12px;
+    margin-bottom: 8px;
+  }
+  .ops-item-top {
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    align-items:flex-start;
+    margin-bottom:6px;
+  }
+  .ops-item-title {
+    font-family: var(--display);
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing:.4px;
+  }
+  .ops-item-meta {
+    font-size:10px;
+    color: var(--text-dim);
+    line-height:1.5;
+  }
+  .ops-item-note {
+    font-size:11px;
+    color: var(--text-dim);
+    line-height:1.5;
+    margin-top:6px;
+  }
+  .ops-pill {
+    display:inline-block;
+    font-size:9px;
+    padding:2px 6px;
+    border-radius:3px;
+    border:1px solid var(--border2);
+    color: var(--text-dim);
+    background: var(--surface2);
+    margin-left:4px;
+    letter-spacing:.6px;
+  }
+  .ops-pill.red { color:var(--red); border-color:var(--red-dim); background:rgba(231,76,60,.08); }
+  .ops-pill.yellow { color:var(--yellow); border-color:var(--yellow-dim); background:rgba(241,196,15,.08); }
+  .ops-pill.green { color:var(--green); border-color:var(--green-dim); background:rgba(46,204,113,.08); }
+  .ops-mini-btn {
+    border:1px solid var(--border2);
+    background:transparent;
+    color:var(--text-dim);
+    border-radius:3px;
+    padding:4px 7px;
+    font-size:10px;
+    font-family:var(--mono);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .ops-mini-btn:hover { color:var(--orange); border-color:var(--orange); }
+  .brief-box {
+    background: #f4f6f9;
+    color: #1a1e24;
+    font-family: Arial, sans-serif;
+    white-space: pre-wrap;
+    padding: 16px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  @media (max-width: 560px) {
+    .header { align-items:flex-start; }
+    .header-right { justify-content:flex-end; max-width: 72%; }
+    .header-right .icon-btn { font-size: 12px; padding: 6px 8px; }
+    .ops-kpi-row { grid-template-columns: repeat(3, 1fr); }
+    .ops-tabs { grid-template-columns: repeat(2, 1fr); }
+  }
+
+
+
+  .ops-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 16px 0; }
+  .ops-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+  .ops-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
+  .ops-title { font-family: var(--display); font-size: 16px; font-weight: 800; letter-spacing: 1px; color: var(--text); }
+  .ops-mini { font-size: 10px; color: var(--text-muted); letter-spacing: 1.5px; text-transform: uppercase; }
+  .ops-list { display:flex; flex-direction:column; gap:6px; }
+  .ops-item { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px; font-size: 12px; color: var(--text-dim); }
+  .ops-item strong { color: var(--text); }
+  .ops-item .tag { display:inline-block; font-size:10px; padding:2px 6px; border-radius:3px; margin-right:5px; border:1px solid var(--border2); color:var(--text-dim); }
+  .tag-open { color: var(--red); border-color: var(--red-dim); background: rgba(231,76,60,0.08); }
+  .tag-ready { color: var(--green); border-color: var(--green-dim); background: rgba(46,204,113,0.08); }
+  .tag-warn { color: var(--orange); border-color: var(--orange-dim); background: rgba(224,123,42,0.08); }
+  .mini-btn { background: transparent; border: 1px solid var(--border2); border-radius: 4px; color: var(--orange); font-family: var(--mono); font-size: 11px; cursor: pointer; padding: 5px 8px; letter-spacing: 1px; }
+  .mini-btn:hover { border-color: var(--orange); }
+  .modal-input.textarea { min-height: 76px; resize: vertical; }
+
+
+.bulk-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.bulk-title {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.bulk-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.bulk-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.bulk-field label {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 1.6px;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+.bulk-field input, .bulk-field select {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 10px;
+  outline: none;
+}
+.bulk-field input:focus, .bulk-field select:focus { border-color: var(--orange); }
+.bulk-full { grid-column: 1 / -1; }
+.bulk-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--orange);
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 1px;
+  margin-top: 12px;
+}
+.supabase-box {
+  background: rgba(52,152,219,.06);
+  border: 1px solid rgba(52,152,219,.35);
+  border-radius: 7px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.supabase-status {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+@media (max-width: 560px) {
+  .bulk-grid { grid-template-columns: 1fr; }
+}
+
+
+.auth-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.auth-title {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--text);
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.auth-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.auth-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.auth-grid input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 10px;
+  outline: none;
+}
+.auth-grid input:focus { border-color: var(--orange); }
+.auth-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+.auth-btn {
+  padding: 11px;
+  background: var(--orange);
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+.auth-btn.secondary {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text-dim);
+}
+.auth-btn.secondary:hover {
+  border-color: var(--orange);
+  color: var(--orange);
+}
+.cloud-status-line {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+.cloud-status-good { color: var(--green); }
+.cloud-status-warn { color: var(--yellow); }
+.cloud-status-bad { color: var(--red); }
+@media (max-width: 560px) {
+  .auth-actions { grid-template-columns: 1fr; }
+}
+
+
+@media (max-width: 560px) {
+  .app-tab { font-size: 15px; padding: 10px 6px; letter-spacing: 1px; }
+}
+
+
+.lock-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px 16px;
+  margin-bottom: 12px;
+  text-align: left;
+}
+.lock-title {
+  font-family: var(--display);
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--text);
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+.lock-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+.lock-note {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  margin-top: 12px;
+}
+
+
+.autosave-status {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 10px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+.autosave-status strong { color: var(--text); }
+
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+const DB = {
+  load() {
+    try { return JSON.parse(localStorage.getItem('d80_wip') || '{}'); } catch { return {}; }
+  },
+  save(data) {
+    localStorage.setItem('d80_wip', JSON.stringify(data));
+  },
+  get() {
+    const d = this.load();
+    if (!d.projects) d.projects = [];
+    if (!d.buildings) d.buildings = [];
+    if (!d.floors) d.floors = [];
+    if (!d.areas) d.areas = [];
+    if (!d.devices) d.devices = [];
+    if (!d.inspections) d.inspections = [];
+    if (!d.deficiencies) d.deficiencies = [];
+    if (!d.materials) d.materials = [];
+    if (!d.crewLogs) d.crewLogs = [];
+    return d;
+  },
+  set(data) {
+    this.save(data);
+    scheduleCloudAutoSave('data change');
+  }
+};
+
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+// SUPABASE CONFIGURATION
+const SUPABASE_CONFIG = {
+  enabled: true,
+  url: 'https://ewefefdqqjtjadbviqmp.supabase.co',
+  anonKey: 'sb_publishable_XwG54hMeVpRDXCZZb63xiA_zPFjaxfj'
+};
+
+let supabaseClient = null;
+let authUser = null;
+let authReady = false;
+let cloudSyncPaused = false;
+let cloudSaveTimer = null;
+let cloudSaveInProgress = false;
+let cloudSavePending = false;
+let cloudLastSavedAt = null;
+let cloudLastError = null;
+
+function getSupabaseClient() {
+  if (!SUPABASE_CONFIG.enabled) return null;
+  if (supabaseClient) return supabaseClient;
+  if (!window.supabase || !window.supabase.createClient) {
+    console.warn('Supabase library did not load.');
+    return null;
+  }
+  supabaseClient = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+  return supabaseClient;
+}
+
+async function initSupabaseAuth() {
+  const client = getSupabaseClient();
+  if (!client) {
+    authReady = true;
+    return;
+  }
+
+  try {
+    const { data } = await client.auth.getSession();
+    authUser = data?.session?.user || null;
+
+    client.auth.onAuthStateChange((_event, session) => {
+      authUser = session?.user || null;
+      if (!authUser) {
+        state.appSection = 'cloud';
+        state.view = 'projects';
+        state.projectId = null;
+        state.buildingId = null;
+        state.floorId = null;
+        state.areaId = null;
+        state.modal = null;
+        state.confirm = null;
+      }
+      render();
+    });
+  } catch (err) {
+    console.error('Auth init failed:', err);
+  }
+
+  authReady = true;
+}
+
+async function signUpWithEmail() {
+  const client = getSupabaseClient();
+  if (!client) return alert('Supabase client is not available.');
+
+  const email = document.getElementById('auth-email')?.value.trim();
+  const password = document.getElementById('auth-password')?.value || '';
+
+  if (!email || !password) return alert('Enter email and password.');
+  if (password.length < 6) return alert('Password must be at least 6 characters.');
+
+  const { data, error } = await client.auth.signUp({ email, password });
+  if (error) return alert(error.message);
+
+  authUser = data?.user || authUser;
+  await ensureProfile();
+  render();
+  alert('Account created. If email confirmation is enabled, confirm your email before logging in.');
+}
+
+async function signInWithEmail() {
+  const client = getSupabaseClient();
+  if (!client) return alert('Supabase client is not available.');
+
+  const email = document.getElementById('auth-email')?.value.trim();
+  const password = document.getElementById('auth-password')?.value || '';
+
+  if (!email || !password) return alert('Enter email and password.');
+
+  const { data, error } = await client.auth.signInWithPassword({ email, password });
+  if (error) return alert(error.message);
+
+  authUser = data?.user || null;
+  await ensureProfile();
+  state.appSection = 'wip';
+  scheduleCloudAutoSave('login');
+  render();
+}
+
+async function signOutUser() {
+  const client = getSupabaseClient();
+  if (!client) return;
+  await client.auth.signOut();
+  if (cloudSaveTimer) clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = null;
+  cloudSaveInProgress = false;
+  cloudSavePending = false;
+  cloudLastError = null;
+  authUser = null;
+  state.appSection = 'cloud';
+  state.view = 'projects';
+  state.projectId = null;
+  state.buildingId = null;
+  state.floorId = null;
+  state.areaId = null;
+  state.modal = null;
+  state.confirm = null;
+  render();
+}
+
+async function ensureProfile() {
+  const client = getSupabaseClient();
+  if (!client || !authUser) return;
+
+  await client.from('profiles').upsert({
+    id: authUser.id,
+    email: authUser.email || '',
+    display_name: authUser.email || '',
+    role: 'user'
+  });
+}
+
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
+}
+
+function generateUuid() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+function loadCloudIdMap() {
+  try {
+    return JSON.parse(localStorage.getItem('d80_cloud_id_map') || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function saveCloudIdMap(map) {
+  localStorage.setItem('d80_cloud_id_map', JSON.stringify(map || {}));
+}
+
+function getCloudId(localId) {
+  if (!localId) return null;
+  if (isUuid(localId)) return localId;
+
+  const map = loadCloudIdMap();
+  if (!map[localId]) {
+    map[localId] = generateUuid();
+    saveCloudIdMap(map);
+  }
+  return map[localId];
+}
+
+function toUuidMap() {
+  return {
+    get(oldId) {
+      return getCloudId(oldId);
+    }
+  };
+}
+
+
+function scheduleCloudAutoSave(reason) {
+  if (cloudSyncPaused) return;
+  if (!authUser) return;
+  if (!SUPABASE_CONFIG.enabled) return;
+
+  cloudLastError = null;
+  cloudSavePending = true;
+
+  if (cloudSaveTimer) clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(() => {
+    cloudSaveTimer = null;
+    autoSaveToSupabase(reason || 'data change');
+  }, 1200);
+}
+
+async function autoSaveToSupabase(reason) {
+  if (!authUser || cloudSyncPaused) return;
+
+  if (cloudSaveInProgress) {
+    cloudSavePending = true;
+    return;
+  }
+
+  cloudSaveInProgress = true;
+  cloudSavePending = false;
+
+  try {
+    await pushLocalToSupabase({ silent: true, reason: reason || 'autosave' });
+    cloudLastSavedAt = new Date();
+    cloudLastError = null;
+  } catch (err) {
+    console.error('Autosave failed:', err);
+    cloudLastError = err.message || String(err);
+  } finally {
+    cloudSaveInProgress = false;
+    render();
+
+    if (cloudSavePending) {
+      cloudSavePending = false;
+      scheduleCloudAutoSave('pending changes');
+    }
+  }
+}
+
+function cloudStatusText() {
+  if (!authUser) return 'Sign in required';
+  if (cloudSaveInProgress) return 'Saving changes...';
+  if (cloudSavePending) return 'Save queued';
+  if (cloudLastError) return 'Last save failed: ' + cloudLastError;
+  if (cloudLastSavedAt) return 'Last saved ' + cloudLastSavedAt.toLocaleTimeString();
+  return 'Ready';
+}
+
+
+async function pushLocalToSupabase(options = {}) {
+  const silent = !!options.silent;
+  const client = getSupabaseClient();
+  if (!client) {
+    if (silent) throw new Error('Supabase client is not available.');
+    return alert('Supabase client is not available.');
+  }
+  if (!authUser) {
+    if (silent) throw new Error('Log in first.');
+    return alert('Log in first.');
+  }
+
+  const db = DB.get();
+  if (!db.projects.length) {
+    if (silent) return;
+    return alert('No local project data to sync.');
+  }
+
+  const idMap = toUuidMap();
+
+  try {
+    await ensureProfile();
+
+    const projectRows = db.projects.map(p => ({
+      id: idMap.get(p.id),
+      owner_id: authUser.id,
+      name: p.name || 'Untitled Project',
+      type: p.type || '',
+      notes: p.notes || '',
+      created_at: new Date(p.createdAt || Date.now()).toISOString()
+    }));
+
+    const buildingRows = db.buildings.map(b => ({
+      id: idMap.get(b.id),
+      project_id: idMap.get(b.projectId),
+      name: b.name || 'Building',
+      notes: b.notes || '',
+      created_at: new Date(b.createdAt || Date.now()).toISOString()
+    }));
+
+    const floorRows = db.floors.map(f => ({
+      id: idMap.get(f.id),
+      building_id: idMap.get(f.buildingId),
+      name: f.name || 'Floor',
+      created_at: new Date(f.createdAt || Date.now()).toISOString()
+    }));
+
+    const areaRows = db.areas.map(a => ({
+      id: idMap.get(a.id),
+      floor_id: idMap.get(a.floorId),
+      name: a.name || 'Area',
+      created_at: new Date(a.createdAt || Date.now()).toISOString()
+    }));
+
+    const deviceRows = db.devices.map(d => ({
+      id: idMap.get(d.id),
+      area_id: idMap.get(d.areaId),
+      type: d.type || 'Device',
+      location: d.location || '',
+      stages: d.stages || [false,false,false,false,false],
+      notes: d.notes || '',
+      created_at: new Date(d.createdAt || Date.now()).toISOString()
+    }));
+
+    const projectIdForOps = projectRows[0]?.id || null;
+
+    const inspectionRows = (db.inspections || []).map(x => ({
+      id: idMap.get(x.id),
+      project_id: projectIdForOps,
+      scope_type: x.scopeType || 'project',
+      scope_id: idMap.get(x.scopeId) || projectIdForOps,
+      type: x.type || '',
+      date: x.date || null,
+      status: x.status || 'Scheduled',
+      inspector: x.inspector || '',
+      notes: x.notes || '',
+      created_at: new Date(x.createdAt || Date.now()).toISOString()
+    })).filter(x => x.project_id);
+
+    const deficiencyRows = (db.deficiencies || []).map(x => ({
+      id: idMap.get(x.id),
+      project_id: projectIdForOps,
+      scope_type: x.scopeType || 'project',
+      scope_id: idMap.get(x.scopeId) || projectIdForOps,
+      title: x.title || 'Punch Item',
+      priority: x.priority || 'Normal',
+      status: x.status || 'Open',
+      owner: x.owner || '',
+      notes: x.notes || '',
+      created_at: new Date(x.createdAt || Date.now()).toISOString()
+    })).filter(x => x.project_id);
+
+    const crewRows = (db.crewLogs || []).map(x => ({
+      id: idMap.get(x.id),
+      project_id: projectIdForOps,
+      scope_type: x.scopeType || 'project',
+      scope_id: idMap.get(x.scopeId) || projectIdForOps,
+      date: x.date || new Date().toISOString().split('T')[0],
+      crew_count: parseInt(x.crewCount || 0, 10) || 0,
+      owner: x.owner || '',
+      notes: x.notes || '',
+      created_at: new Date(x.createdAt || Date.now()).toISOString()
+    })).filter(x => x.project_id);
+
+    const steps = [
+      ['projects', projectRows],
+      ['buildings', buildingRows],
+      ['floors', floorRows],
+      ['areas', areaRows],
+      ['devices', deviceRows],
+      ['inspections', inspectionRows],
+      ['deficiencies', deficiencyRows],
+      ['crew_logs', crewRows]
+    ];
+
+    for (const [table, rows] of steps) {
+      if (!rows.length) continue;
+      const { error } = await client.from(table).upsert(rows);
+      if (error) throw new Error(`${table}: ${error.message}`);
+    }
+
+    if (!silent) alert('Cloud sync complete.');
+  } catch (err) {
+    console.error(err);
+    if (silent) throw err;
+    alert('Cloud sync failed: ' + err.message);
+  }
+}
+
+async function pullSupabaseToLocal() {
+  const client = getSupabaseClient();
+  if (!client) return alert('Supabase client is not available.');
+  if (!authUser) return alert('Log in first.');
+
+  try {
+    const projectsRes = await client.from('projects').select('*').order('created_at', { ascending: true });
+    if (projectsRes.error) throw new Error(projectsRes.error.message);
+
+    const projects = projectsRes.data || [];
+    const projectIds = projects.map(p => p.id);
+
+    if (!projectIds.length) {
+      alert('No cloud projects found for this account.');
+      return;
+    }
+
+    const buildingsRes = await client.from('buildings').select('*').in('project_id', projectIds).order('created_at', { ascending: true });
+    if (buildingsRes.error) throw new Error(buildingsRes.error.message);
+    const buildingIds = (buildingsRes.data || []).map(b => b.id);
+
+    const floorsRes = buildingIds.length
+      ? await client.from('floors').select('*').in('building_id', buildingIds).order('created_at', { ascending: true })
+      : { data: [], error: null };
+    if (floorsRes.error) throw new Error(floorsRes.error.message);
+    const floorIds = (floorsRes.data || []).map(f => f.id);
+
+    const areasRes = floorIds.length
+      ? await client.from('areas').select('*').in('floor_id', floorIds).order('created_at', { ascending: true })
+      : { data: [], error: null };
+    if (areasRes.error) throw new Error(areasRes.error.message);
+    const areaIds = (areasRes.data || []).map(a => a.id);
+
+    const devicesRes = areaIds.length
+      ? await client.from('devices').select('*').in('area_id', areaIds).order('created_at', { ascending: true })
+      : { data: [], error: null };
+    if (devicesRes.error) throw new Error(devicesRes.error.message);
+
+    const inspectionsRes = await client.from('inspections').select('*').in('project_id', projectIds).order('created_at', { ascending: true });
+    if (inspectionsRes.error) throw new Error(inspectionsRes.error.message);
+
+    const deficienciesRes = await client.from('deficiencies').select('*').in('project_id', projectIds).order('created_at', { ascending: true });
+    if (deficienciesRes.error) throw new Error(deficienciesRes.error.message);
+
+    const crewRes = await client.from('crew_logs').select('*').in('project_id', projectIds).order('created_at', { ascending: true });
+    if (crewRes.error) throw new Error(crewRes.error.message);
+
+    const data = {
+      projects: projects.map(p => ({
+        id: p.id,
+        name: p.name,
+        type: p.type || '',
+        notes: p.notes || '',
+        createdAt: p.created_at ? new Date(p.created_at).getTime() : Date.now()
+      })),
+      buildings: (buildingsRes.data || []).map(b => ({
+        id: b.id,
+        projectId: b.project_id,
+        name: b.name,
+        notes: b.notes || '',
+        createdAt: b.created_at ? new Date(b.created_at).getTime() : Date.now()
+      })),
+      floors: (floorsRes.data || []).map(f => ({
+        id: f.id,
+        buildingId: f.building_id,
+        name: f.name,
+        createdAt: f.created_at ? new Date(f.created_at).getTime() : Date.now()
+      })),
+      areas: (areasRes.data || []).map(a => ({
+        id: a.id,
+        floorId: a.floor_id,
+        name: a.name,
+        createdAt: a.created_at ? new Date(a.created_at).getTime() : Date.now()
+      })),
+      devices: (devicesRes.data || []).map(d => ({
+        id: d.id,
+        areaId: d.area_id,
+        type: d.type,
+        location: d.location || '',
+        stages: Array.isArray(d.stages) ? d.stages : [false,false,false,false,false],
+        notes: d.notes || '',
+        createdAt: d.created_at ? new Date(d.created_at).getTime() : Date.now()
+      })),
+      inspections: (inspectionsRes.data || []).map(x => ({
+        id: x.id,
+        scopeType: x.scope_type,
+        scopeId: x.scope_id,
+        type: x.type || '',
+        date: x.date || '',
+        status: x.status || 'Scheduled',
+        inspector: x.inspector || '',
+        notes: x.notes || '',
+        createdAt: x.created_at ? new Date(x.created_at).getTime() : Date.now()
+      })),
+      deficiencies: (deficienciesRes.data || []).map(x => ({
+        id: x.id,
+        scopeType: x.scope_type,
+        scopeId: x.scope_id,
+        title: x.title || '',
+        priority: x.priority || 'Normal',
+        status: x.status || 'Open',
+        owner: x.owner || '',
+        notes: x.notes || '',
+        createdAt: x.created_at ? new Date(x.created_at).getTime() : Date.now()
+      })),
+      crewLogs: (crewRes.data || []).map(x => ({
+        id: x.id,
+        scopeType: x.scope_type,
+        scopeId: x.scope_id,
+        date: x.date || '',
+        crewCount: x.crew_count || 0,
+        owner: x.owner || '',
+        notes: x.notes || '',
+        createdAt: x.created_at ? new Date(x.created_at).getTime() : Date.now()
+      }))
+    };
+
+    data.projects = sortByName(data.projects);
+    data.buildings = sortBuildings(data.buildings);
+    data.floors = sortFloors(data.floors);
+    data.areas = sortAreas(data.areas);
+    data.devices = sortDevices(data.devices);
+
+    cloudSyncPaused = true;
+    DB.set(data);
+    cloudSyncPaused = false;
+    state.view = 'projects';
+    state.projectId = null;
+    state.buildingId = null;
+    state.floorId = null;
+    state.areaId = null;
+    state.appSection = 'wip';
+    render();
+    alert('Cloud data loaded.');
+  } catch (err) {
+    console.error(err);
+    alert('Cloud load failed: ' + err.message);
+  }
+}
+
+
+
+
+let state = {
+  view: 'projects',
+  projectId: null,
+  buildingId: null,
+  floorId: null,
+  areaId: null,
+  modal: null,
+  confirm: null,
+  expandedDevices: {},
+  modalData: {},
+  activeTool: null
+};
+
+
+// ============================================================
+// SORT HELPERS — keep field lists in human order
+// ============================================================
+function naturalCompare(a, b) {
+  return String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' });
+}
+
+function numberFromName(name) {
+  const match = String(name || '').match(/\d+/);
+  return match ? parseInt(match[0], 10) : 999999;
+}
+
+function areaSortRank(area) {
+  const name = String(area?.name || '').toLowerCase().trim();
+  if (name.startsWith('unit')) return 10;
+  if (name.startsWith('corridor')) return 20;
+  if (name.startsWith('stairwell') || name.startsWith('stair')) return 30;
+  if (name.includes('elevator')) return 40;
+  if (name.includes('electrical') || name.includes('elec')) return 50;
+  if (name.includes('mechanical') || name.includes('mech')) return 60;
+  if (name.includes('mdf') || name.includes('idf')) return 70;
+  if (name.includes('clubhouse')) return 80;
+  return 90;
+}
+
+function sortByName(list) {
+  return [...(list || [])].sort((a, b) => naturalCompare(a.name, b.name));
+}
+
+function sortBuildings(list) {
+  return [...(list || [])].sort((a, b) => naturalCompare(a.name, b.name));
+}
+
+function sortFloors(list) {
+  return [...(list || [])].sort((a, b) => {
+    const an = numberFromName(a.name);
+    const bn = numberFromName(b.name);
+    if (an !== bn) return an - bn;
+    return naturalCompare(a.name, b.name);
+  });
+}
+
+function sortAreas(list) {
+  return [...(list || [])].sort((a, b) => {
+    const ar = areaSortRank(a);
+    const br = areaSortRank(b);
+    if (ar !== br) return ar - br;
+    const an = numberFromName(a.name);
+    const bn = numberFromName(b.name);
+    if (an !== bn) return an - bn;
+    return naturalCompare(a.name, b.name);
+  });
+}
+
+function sortDevices(list) {
+  return [...(list || [])].sort((a, b) => {
+    const loc = naturalCompare(a.location, b.location);
+    if (loc !== 0) return loc;
+    return naturalCompare(a.type, b.type);
+  });
+}
+
+
+const STAGES = ['Boxed','Wired','Res. Test','Device','Tested'];
+
+function deviceProgress(device) {
+  const stages = device.stages || [false,false,false,false,false];
+  const done = stages.filter(Boolean).length;
+  return { done, total: 5, pct: Math.round((done/5)*100) };
+}
+
+function areaProgress(areaId) {
+  const db = DB.get();
+  const devices = db.devices.filter(d => d.areaId === areaId);
+  if (!devices.length) return { done: 0, total: 0, pct: 0, deviceCount: 0 };
+  const totalStages = devices.length * 5;
+  const doneStages = devices.reduce((acc, d) => acc + (d.stages||[]).filter(Boolean).length, 0);
+  return { done: doneStages, total: totalStages, pct: Math.round((doneStages/totalStages)*100), deviceCount: devices.length };
+}
+
+function floorProgress(floorId) {
+  const db = DB.get();
+  const areas = db.areas.filter(a => a.floorId === floorId);
+  if (!areas.length) return { pct: 0, deviceCount: 0 };
+  let totalStages = 0, doneStages = 0, deviceCount = 0;
+  areas.forEach(a => {
+    const p = areaProgress(a.id);
+    totalStages += p.total; doneStages += p.done; deviceCount += p.deviceCount;
+  });
+  return { pct: totalStages ? Math.round((doneStages/totalStages)*100) : 0, deviceCount };
+}
+
+function buildingProgress(buildingId) {
+  const db = DB.get();
+  const floors = db.floors.filter(f => f.buildingId === buildingId);
+  if (!floors.length) return { pct: 0, deviceCount: 0 };
+  let totalStages = 0, doneStages = 0, deviceCount = 0;
+  floors.forEach(f => {
+    const areas = sortAreas(db.areas.filter(a => a.floorId === f.id));
+    areas.forEach(a => {
+      const p = areaProgress(a.id);
+      totalStages += p.total; doneStages += p.done; deviceCount += p.deviceCount;
+    });
+  });
+  return { pct: totalStages ? Math.round((doneStages/totalStages)*100) : 0, deviceCount };
+}
+
+function projectProgress(projectId) {
+  const db = DB.get();
+  const buildings = sortBuildings(db.buildings.filter(b => b.projectId === projectId));
+  if (!buildings.length) return { pct: 0, deviceCount: 0, buildingCount: buildings.length };
+  let totalStages = 0, doneStages = 0, deviceCount = 0;
+  buildings.forEach(b => {
+    const floors = db.floors.filter(f => f.buildingId === b.id);
+    floors.forEach(f => {
+      const areas = sortAreas(db.areas.filter(a => a.floorId === f.id));
+      areas.forEach(a => {
+        const p = areaProgress(a.id);
+        totalStages += p.total; doneStages += p.done; deviceCount += p.deviceCount;
+      });
+    });
+  });
+  return { pct: totalStages ? Math.round((doneStages/totalStages)*100) : 0, deviceCount, buildingCount: buildings.length };
+}
+
+function progressColor(pct) {
+  if (pct === 100) return 'var(--green)';
+  if (pct > 0) return 'var(--orange)';
+  return 'var(--text-muted)';
+}
+
+
+function todayISO() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function dueClass(dateStr) {
+  if (!dateStr) return 'tag-warn';
+  const today = new Date(todayISO());
+  const d = new Date(dateStr + 'T00:00:00');
+  const diff = Math.ceil((d - today) / 86400000);
+  if (diff < 0) return 'tag-open';
+  if (diff <= 3) return 'tag-warn';
+  return 'tag-ready';
+}
+
+function openDeficienciesForScope(scopeType, scopeId) {
+  const db = DB.get();
+  return db.deficiencies.filter(x => x.scopeType === scopeType && x.scopeId === scopeId && x.status !== 'Closed');
+}
+
+function inspectionsForScope(scopeType, scopeId) {
+  const db = DB.get();
+  return db.inspections.filter(x => x.scopeType === scopeType && x.scopeId === scopeId);
+}
+
+function nextInspectionForScope(scopeType, scopeId) {
+  const list = inspectionsForScope(scopeType, scopeId)
+    .filter(x => x.date)
+    .sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  return list.find(x => x.status !== 'Passed') || list[0] || null;
+}
+
+function buildOpsPanel(scopeType, scopeId) {
+  if (!scopeType || !scopeId) return '';
+  const db = DB.get();
+  const inspections = inspectionsForScope(scopeType, scopeId).sort((a,b) => String(a.date||'9999').localeCompare(String(b.date||'9999'))).slice(0,5);
+  const deficiencies = openDeficienciesForScope(scopeType, scopeId).slice(0,5);
+  return `
+    <div class="ops-grid">
+      <div class="ops-card">
+        <div class="ops-head">
+          <div>
+            <div class="ops-title">INSPECTIONS</div>
+            <div class="ops-mini">next dates, readiness, AHJ notes</div>
+          </div>
+          <button class="mini-btn" onclick="openModal('inspection','${scopeType}|${scopeId}')">+ ADD</button>
+        </div>
+        <div class="ops-list">
+          ${inspections.length ? inspections.map(x => `
+            <div class="ops-item">
+              <span class="tag ${dueClass(x.date)}">${escapeHtml(x.date || 'NO DATE')}</span>
+              <strong>${escapeHtml(x.type || 'Inspection')}</strong> · ${escapeHtml(x.status || 'Scheduled')}<br>
+              <span>${escapeHtml(x.ahj || 'AHJ/Inspector TBD')}</span>${x.notes ? ` · ${escapeHtml(x.notes)}` : ''}
+              <button class="btn-delete" onclick="deleteOpsItem('inspection','${x.id}')" style="float:right">✕</button>
+            </div>`).join('') : `<div class="ops-item">No inspections logged yet.</div>`}
+        </div>
+      </div>
+      <div class="ops-card">
+        <div class="ops-head">
+          <div>
+            <div class="ops-title">PUNCH / DEFICIENCIES</div>
+            <div class="ops-mini">open issues that can screw the schedule</div>
+          </div>
+          <button class="mini-btn" onclick="openModal('deficiency','${scopeType}|${scopeId}')">+ ADD</button>
+        </div>
+        <div class="ops-list">
+          ${deficiencies.length ? deficiencies.map(x => `
+            <div class="ops-item">
+              <span class="tag ${x.priority === 'High' ? 'tag-open' : x.priority === 'Medium' ? 'tag-warn' : 'tag-ready'}">${escapeHtml(x.priority || 'Normal')}</span>
+              <strong>${escapeHtml(x.title || 'Issue')}</strong> · ${escapeHtml(x.status || 'Open')}<br>
+              <span>${escapeHtml(x.owner || 'Owner TBD')}</span>${x.dueDate ? ` · Due ${escapeHtml(x.dueDate)}` : ''}${x.notes ? ` · ${escapeHtml(x.notes)}` : ''}
+              <button class="btn-delete" onclick="deleteOpsItem('deficiency','${x.id}')" style="float:right">✕</button>
+            </div>`).join('') : `<div class="ops-item">No open deficiencies. Weirdly peaceful. Suspicious.</div>`}
+        </div>
+      </div>
+    </div>`;
+}
+
+function buildProjectOpsSummary() {
+  const db = DB.get();
+  const inspections = db.inspections.slice().sort((a,b) => String(a.date||'9999').localeCompare(String(b.date||'9999'))).slice(0,5);
+  const deficiencies = db.deficiencies.filter(x => x.status !== 'Closed').slice(0,5);
+  return `
+    <div class="ops-grid">
+      <div class="ops-card">
+        <div class="ops-head"><div><div class="ops-title">NEXT INSPECTIONS</div><div class="ops-mini">global project view</div></div></div>
+        <div class="ops-list">
+          ${inspections.length ? inspections.map(x => `<div class="ops-item"><span class="tag ${dueClass(x.date)}">${escapeHtml(x.date || 'NO DATE')}</span><strong>${escapeHtml(x.type || 'Inspection')}</strong> · ${escapeHtml(x.status || 'Scheduled')}<br>${escapeHtml(scopeLabel(x.scopeType, x.scopeId))}${x.ahj ? ` · ${escapeHtml(x.ahj)}` : ''}</div>`).join('') : `<div class="ops-item">No inspections currently scheduled.</div>`}
+        </div>
+      </div>
+      <div class="ops-card">
+        <div class="ops-head"><div><div class="ops-title">OPEN PUNCH ITEMS</div><div class="ops-mini">top schedule killers</div></div></div>
+        <div class="ops-list">
+          ${deficiencies.length ? deficiencies.map(x => `<div class="ops-item"><span class="tag ${x.priority === 'High' ? 'tag-open' : x.priority === 'Medium' ? 'tag-warn' : 'tag-ready'}">${escapeHtml(x.priority || 'Normal')}</span><strong>${escapeHtml(x.title || 'Issue')}</strong> · ${escapeHtml(x.status || 'Open')}<br>${escapeHtml(scopeLabel(x.scopeType, x.scopeId))}${x.owner ? ` · ${escapeHtml(x.owner)}` : ''}</div>`).join('') : `<div class="ops-item">No open punch items. Either you're winning, or the gremlins haven't filed paperwork yet.</div>`}
+        </div>
+      </div>
+    </div>`;
+}
+
+function scopeLabel(scopeType, scopeId) {
+  const db = DB.get();
+  if (scopeType === 'project') return db.projects.find(x => x.id === scopeId)?.name || 'Project';
+  if (scopeType === 'building') return db.buildings.find(x => x.id === scopeId)?.name || 'Building';
+  if (scopeType === 'floor') return db.floors.find(x => x.id === scopeId)?.name || 'Floor';
+  if (scopeType === 'area') return db.areas.find(x => x.id === scopeId)?.name || 'Area';
+  if (scopeType === 'device') return db.devices.find(x => x.id === scopeId)?.type || 'Device';
+  return 'Unknown Scope';
+}
+
+
+function getCurrentScope() {
+  if (state.areaId) return { scopeType: 'area', scopeId: state.areaId };
+  if (state.floorId) return { scopeType: 'floor', scopeId: state.floorId };
+  if (state.buildingId) return { scopeType: 'building', scopeId: state.buildingId };
+  if (state.projectId) return { scopeType: 'project', scopeId: state.projectId };
+  const db = DB.get();
+  return { scopeType: 'project', scopeId: db.projects[0]?.id || null };
+}
+
+function scopeLabel(scopeType, scopeId) {
+  const db = DB.get();
+  if (!scopeId) return 'No Scope';
+  if (scopeType === 'project') return db.projects.find(x => x.id === scopeId)?.name || 'Project';
+  if (scopeType === 'building') return db.buildings.find(x => x.id === scopeId)?.name || 'Building';
+  if (scopeType === 'floor') return db.floors.find(x => x.id === scopeId)?.name || 'Floor';
+  if (scopeType === 'area') return db.areas.find(x => x.id === scopeId)?.name || 'Area';
+  return 'Scope';
+}
+
+function isInScope(item, scopeType, scopeId) {
+  if (!scopeId) return true;
+  if (item.scopeType === scopeType && item.scopeId === scopeId) return true;
+
+  const db = DB.get();
+
+  if (scopeType === 'project') {
+    if (item.scopeType === 'project') return item.scopeId === scopeId;
+    const buildings = db.buildings.filter(b => b.projectId === scopeId).map(b => b.id);
+    if (item.scopeType === 'building') return buildings.includes(item.scopeId);
+    const floors = db.floors.filter(f => buildings.includes(f.buildingId)).map(f => f.id);
+    if (item.scopeType === 'floor') return floors.includes(item.scopeId);
+    const areas = db.areas.filter(a => floors.includes(a.floorId)).map(a => a.id);
+    if (item.scopeType === 'area') return areas.includes(item.scopeId);
+  }
+
+  if (scopeType === 'building') {
+    if (item.scopeType === 'building') return item.scopeId === scopeId;
+    const floors = db.floors.filter(f => f.buildingId === scopeId).map(f => f.id);
+    if (item.scopeType === 'floor') return floors.includes(item.scopeId);
+    const areas = db.areas.filter(a => floors.includes(a.floorId)).map(a => a.id);
+    if (item.scopeType === 'area') return areas.includes(item.scopeId);
+  }
+
+  if (scopeType === 'floor') {
+    if (item.scopeType === 'floor') return item.scopeId === scopeId;
+    const areas = db.areas.filter(a => a.floorId === scopeId).map(a => a.id);
+    if (item.scopeType === 'area') return areas.includes(item.scopeId);
+  }
+
+  return false;
+}
+
+function openItemsCount(listName, scopeType, scopeId) {
+  const db = DB.get();
+  const list = db[listName] || [];
+  return list.filter(x => isInScope(x, scopeType, scopeId) && (x.status || 'Open') !== 'Closed' && (x.status || 'Open') !== 'Complete').length;
+}
+
+function nextInspection(scopeType, scopeId) {
+  const db = DB.get();
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const inspections = (db.inspections || [])
+    .filter(x => isInScope(x, scopeType, scopeId) && x.date)
+    .sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  return inspections.find(x => new Date(x.date + 'T00:00:00') >= today) || inspections[0] || null;
+}
+
+function buildOpsSummary(scopeType, scopeId) {
+  const db = DB.get();
+  const insp = nextInspection(scopeType, scopeId);
+  const openDef = openItemsCount('deficiencies', scopeType, scopeId);
+  const openMat = openItemsCount('materials', scopeType, scopeId);
+  const crewLogs = (db.crewLogs || []).filter(x => isInScope(x, scopeType, scopeId));
+  const latestCrew = crewLogs.sort((a,b) => String(b.date || '').localeCompare(String(a.date || '')))[0];
+
+  return `
+    <div class="ops-grid">
+      <div class="ops-panel">
+        <div class="ops-panel-title">Ops Snapshot</div>
+        <div class="ops-line"><span class="ops-key">Scope</span><span class="ops-val">${escapeHtml(scopeLabel(scopeType, scopeId))}</span></div>
+        <div class="ops-line"><span class="ops-key">Open Deficiencies</span><span class="ops-val ${openDef ? 'ops-alert' : 'ops-good'}">${openDef}</span></div>
+        <div class="ops-line"><span class="ops-key">Material Shortages</span><span class="ops-val ${openMat ? 'ops-warn' : 'ops-good'}">${openMat}</span></div>
+        <div class="ops-line"><span class="ops-key">Latest Crew Log</span><span class="ops-val">${latestCrew ? escapeHtml(latestCrew.date || '-') : '-'}</span></div>
+      </div>
+      <div class="ops-panel">
+        <div class="ops-panel-title">Next Inspection</div>
+        <div class="ops-line"><span class="ops-key">Date</span><span class="ops-val">${insp ? escapeHtml(insp.date || '-') : '-'}</span></div>
+        <div class="ops-line"><span class="ops-key">Type</span><span class="ops-val">${insp ? escapeHtml(insp.type || '-') : '-'}</span></div>
+        <div class="ops-line"><span class="ops-key">AHJ / Inspector</span><span class="ops-val">${insp ? escapeHtml(insp.inspector || '-') : '-'}</span></div>
+        <div class="ops-line"><span class="ops-key">Status</span><span class="ops-val">${insp ? escapeHtml(insp.status || 'Scheduled') : '-'}</span></div>
+      </div>
+    </div>
+    <div class="quick-actions">
+      <button class="quick-btn" onclick="openModal('inspection','${scopeType}:${scopeId || ''}')">+ INSPECTION</button>
+      <button class="quick-btn" onclick="openModal('deficiency','${scopeType}:${scopeId || ''}')">+ DEFICIENCY</button>
+      <button class="quick-btn" onclick="openModal('material','${scopeType}:${scopeId || ''}')">+ MATERIAL</button>
+      <button class="quick-btn" onclick="openModal('crewLog','${scopeType}:${scopeId || ''}')">+ CREW LOG</button>
+    </div>
+  `;
+}
+
+function parseScopeParent(parentId) {
+  const raw = String(parentId || '');
+  if (!raw.includes(':')) return getCurrentScope();
+  const parts = raw.split(':');
+  return { scopeType: parts[0], scopeId: parts.slice(1).join(':') || null };
+}
+
+
+
+function getRootProjectId() {
+  const db = DB.get();
+  return state.projectId || db.projects[0]?.id || null;
+}
+
+function getCurrentScope() {
+  if (state.areaId) return { scopeType: 'area', scopeId: state.areaId };
+  if (state.floorId) return { scopeType: 'floor', scopeId: state.floorId };
+  if (state.buildingId) return { scopeType: 'building', scopeId: state.buildingId };
+  if (state.projectId) return { scopeType: 'project', scopeId: state.projectId };
+  return { scopeType: 'project', scopeId: getRootProjectId() };
+}
+
+function scopeLabel(scopeType, scopeId) {
+  const db = DB.get();
+  if (!scopeId) return 'No Scope';
+  if (scopeType === 'project') return db.projects.find(x => x.id === scopeId)?.name || 'Project';
+  if (scopeType === 'building') return db.buildings.find(x => x.id === scopeId)?.name || 'Building';
+  if (scopeType === 'floor') return db.floors.find(x => x.id === scopeId)?.name || 'Floor';
+  if (scopeType === 'area') return db.areas.find(x => x.id === scopeId)?.name || 'Area';
+  return 'Scope';
+}
+
+function isInScope(item, scopeType, scopeId) {
+  if (!scopeId) return true;
+  if (item.scopeType === scopeType && item.scopeId === scopeId) return true;
+
+  const db = DB.get();
+
+  if (scopeType === 'project') {
+    if (item.scopeType === 'project') return item.scopeId === scopeId;
+    const buildings = db.buildings.filter(b => b.projectId === scopeId).map(b => b.id);
+    if (item.scopeType === 'building') return buildings.includes(item.scopeId);
+    const floors = db.floors.filter(f => buildings.includes(f.buildingId)).map(f => f.id);
+    if (item.scopeType === 'floor') return floors.includes(item.scopeId);
+    const areas = db.areas.filter(a => floors.includes(a.floorId)).map(a => a.id);
+    if (item.scopeType === 'area') return areas.includes(item.scopeId);
+  }
+
+  if (scopeType === 'building') {
+    if (item.scopeType === 'building') return item.scopeId === scopeId;
+    const floors = db.floors.filter(f => f.buildingId === scopeId).map(f => f.id);
+    if (item.scopeType === 'floor') return floors.includes(item.scopeId);
+    const areas = db.areas.filter(a => floors.includes(a.floorId)).map(a => a.id);
+    if (item.scopeType === 'area') return areas.includes(item.scopeId);
+  }
+
+  if (scopeType === 'floor') {
+    if (item.scopeType === 'floor') return item.scopeId === scopeId;
+    const areas = db.areas.filter(a => a.floorId === scopeId).map(a => a.id);
+    if (item.scopeType === 'area') return areas.includes(item.scopeId);
+  }
+
+  return false;
+}
+
+function parseScopeParent(parentId) {
+  const raw = String(parentId || '');
+  if (!raw.includes(':')) return getCurrentScope();
+  const parts = raw.split(':');
+  return { scopeType: parts[0], scopeId: parts.slice(1).join(':') || null };
+}
+
+function statusClass(status) {
+  const s = String(status || '').toLowerCase();
+  if (s.includes('closed') || s.includes('complete') || s.includes('passed') || s.includes('delivered')) return 'green';
+  if (s.includes('high') || s.includes('fail') || s.includes('open') || s.includes('needed')) return 'red';
+  if (s.includes('progress') || s.includes('ordered') || s.includes('ready') || s.includes('scheduled')) return 'yellow';
+  return '';
+}
+
+function getScopedItems(listName, scopeType, scopeId) {
+  const db = DB.get();
+  return (db[listName] || [])
+    .filter(x => isInScope(x, scopeType, scopeId))
+    .sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+function nextInspection(scopeType, scopeId) {
+  const db = DB.get();
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const inspections = (db.inspections || [])
+    .filter(x => isInScope(x, scopeType, scopeId) && x.date)
+    .sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  return inspections.find(x => new Date(x.date + 'T00:00:00') >= today) || inspections[0] || null;
+}
+
+function setOpsTab(tab) {
+  state.activeOpsTab = tab;
+  render();
+}
+
+function buildOpsView() {
+  const db = DB.get();
+  const projectId = getRootProjectId();
+  const project = db.projects.find(p => p.id === projectId);
+  const scopeType = 'project';
+  const scopeId = projectId;
+
+  const progress = projectId ? projectProgress(projectId) : { pct: 0, deviceCount: 0, buildingCount: 0 };
+  const openPunch = getScopedItems('deficiencies', scopeType, scopeId).filter(x => (x.status || 'Open') !== 'Closed').length;
+  const openMaterials = getScopedItems('materials', scopeType, scopeId).filter(x => (x.status || 'Needed') !== 'Delivered').length;
+  const inspections = getScopedItems('inspections', scopeType, scopeId).length;
+
+  return `
+    <div class="section-label">OPS COMMAND CENTER</div>
+    <div class="ops-clean-card">
+      <div class="ops-clean-title">${escapeHtml(project?.name || 'Project Ops')}</div>
+      <div class="ops-clean-sub">Project operations view for inspections, punch tracking, and crew logs.</div>
+      <div class="ops-kpi-row">
+        <div class="ops-kpi"><div class="ops-kpi-num" style="color:var(--orange)">${progress.pct || 0}%</div><div class="ops-kpi-label">WIP</div></div>
+        <div class="ops-kpi"><div class="ops-kpi-num" style="color:${openPunch ? 'var(--red)' : 'var(--green)'}">${openPunch}</div><div class="ops-kpi-label">PUNCH</div></div>
+        <div class="ops-kpi"><div class="ops-kpi-num" style="color:${openMaterials ? 'var(--yellow)' : 'var(--green)'}">${openMaterials}</div><div class="ops-kpi-label">MATERIAL</div></div>
+      </div>
+      <div class="ops-kpi-row">
+        <div class="ops-kpi"><div class="ops-kpi-num" style="color:var(--text)">${progress.buildingCount || 0}</div><div class="ops-kpi-label">BLDG</div></div>
+        <div class="ops-kpi"><div class="ops-kpi-num" style="color:var(--text)">${progress.deviceCount || 0}</div><div class="ops-kpi-label">DEVICES</div></div>
+        <div class="ops-kpi"><div class="ops-kpi-num" style="color:var(--blue)">${inspections}</div><div class="ops-kpi-label">INSP</div></div>
+      </div>
+    </div>
+
+    <div class="ops-action-row">
+      <button class="ops-action" onclick="openModal('inspection','project:${scopeId || ''}')">+ INSPECTION</button>
+      <button class="ops-action" onclick="openModal('deficiency','project:${scopeId || ''}')">+ PUNCH</button>
+      <button class="ops-action" onclick="openModal('crewLog','project:${scopeId || ''}')">+ CREW LOG</button>
+    </div>
+
+    ${buildOpsTabs()}
+    ${buildOpsTabContent(scopeType, scopeId)}
+  `;
+}
+
+function buildOpsTabs() {
+  const tab = state.activeOpsTab || 'punch';
+  const tabs = [
+    ['punch','PUNCH'],
+    ['inspections','INSPECTIONS'],
+        ['crew','CREW']
+  ];
+  return `<div class="ops-tabs">${tabs.map(t => `<button class="ops-tab ${tab===t[0]?'active':''}" onclick="setOpsTab('${t[0]}')">${t[1]}</button>`).join('')}</div>`;
+}
+
+function buildOpsTabContent(scopeType, scopeId) {
+  const tab = state.activeOpsTab || 'punch';
+  if (tab === 'punch') return buildDeficiencyList(scopeType, scopeId);
+  if (tab === 'inspections') return buildInspectionList(scopeType, scopeId);
+  if (tab === 'crew') return buildCrewLogList(scopeType, scopeId);
+  return '';
+}
+
+function buildDeficiencyList(scopeType, scopeId) {
+  const items = getScopedItems('deficiencies', scopeType, scopeId);
+  if (!items.length) return `<div class="ops-list"><div class="empty" style="padding:20px">No punch items currently listed.</div></div>`;
+  return `<div class="ops-list">${items.map(x => `
+    <div class="ops-item">
+      <div class="ops-item-top">
+        <div>
+          <div class="ops-item-title">${escapeHtml(x.title || 'Punch Item')}</div>
+          <div class="ops-item-meta">
+            ${escapeHtml(scopeLabel(x.scopeType, x.scopeId))}
+            <span class="ops-pill ${statusClass(x.priority)}">${escapeHtml(x.priority || 'Normal')}</span>
+            <span class="ops-pill ${statusClass(x.status)}">${escapeHtml(x.status || 'Open')}</span>
+          </div>
+        </div>
+        ${(x.status || 'Open') !== 'Closed' ? `<button class="ops-mini-btn" onclick="setOpsStatus('deficiencies','${x.id}','Closed')">CLOSE</button>` : ''}
+      </div>
+      <div class="ops-item-meta">Owner: ${escapeHtml(x.owner || '-')}</div>
+      ${x.notes ? `<div class="ops-item-note">${escapeHtml(x.notes)}</div>` : ''}
+    </div>`).join('')}</div>`;
+}
+
+function buildInspectionList(scopeType, scopeId) {
+  const items = getScopedItems('inspections', scopeType, scopeId).sort((a,b) => String(a.date || '').localeCompare(String(b.date || '')));
+  if (!items.length) return `<div class="ops-list"><div class="empty" style="padding:20px">No inspections currently scheduled.</div></div>`;
+  return `<div class="ops-list">${items.map(x => `
+    <div class="ops-item">
+      <div class="ops-item-top">
+        <div>
+          <div class="ops-item-title">${escapeHtml(x.type || 'Inspection')}</div>
+          <div class="ops-item-meta">
+            ${escapeHtml(scopeLabel(x.scopeType, x.scopeId))}
+            <span class="ops-pill ${statusClass(x.status)}">${escapeHtml(x.status || 'Scheduled')}</span>
+          </div>
+        </div>
+        <div class="ops-item-meta" style="text-align:right">${escapeHtml(x.date || '-')}</div>
+      </div>
+      <div class="ops-item-meta">AHJ / Inspector: ${escapeHtml(x.inspector || '-')}</div>
+      ${x.notes ? `<div class="ops-item-note">${escapeHtml(x.notes)}</div>` : ''}
+    </div>`).join('')}</div>`;
+}
+
+function buildMaterialList(scopeType, scopeId) {
+  const items = getScopedItems('materials', scopeType, scopeId);
+  if (!items.length) return `<div class="ops-list"><div class="empty" style="padding:20px">No material records currently listed.</div></div>`;
+  return `<div class="ops-list">${items.map(x => {
+    const shortage = Math.max((parseInt(x.qtyNeeded || 0, 10) || 0) - (parseInt(x.qtyOnHand || 0, 10) || 0), 0);
+    return `
+    <div class="ops-item">
+      <div class="ops-item-top">
+        <div>
+          <div class="ops-item-title">${escapeHtml(x.item || 'Material')}</div>
+          <div class="ops-item-meta">
+            ${escapeHtml(scopeLabel(x.scopeType, x.scopeId))}
+            <span class="ops-pill ${statusClass(x.status)}">${escapeHtml(x.status || 'Needed')}</span>
+            ${shortage > 0 ? `<span class="ops-pill red">SHORT ${shortage}</span>` : `<span class="ops-pill green">OK</span>`}
+          </div>
+        </div>
+        ${(x.status || 'Needed') !== 'Delivered' ? `<button class="ops-mini-btn" onclick="setOpsStatus('materials','${x.id}','Delivered')">DELIVERED</button>` : ''}
+      </div>
+      <div class="ops-item-meta">Need: ${escapeHtml(x.qtyNeeded ?? 0)} · On hand: ${escapeHtml(x.qtyOnHand ?? 0)} · Needed by: ${escapeHtml(x.date || '-')}</div>
+      ${x.notes ? `<div class="ops-item-note">${escapeHtml(x.notes)}</div>` : ''}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function buildCrewLogList(scopeType, scopeId) {
+  const items = getScopedItems('crewLogs', scopeType, scopeId).sort((a,b) => String(b.date || '').localeCompare(String(a.date || '')));
+  if (!items.length) return `<div class="ops-list"><div class="empty" style="padding:20px">No crew logs currently listed.</div></div>`;
+  return `<div class="ops-list">${items.map(x => `
+    <div class="ops-item">
+      <div class="ops-item-top">
+        <div>
+          <div class="ops-item-title">${escapeHtml(x.date || 'Crew Log')}</div>
+          <div class="ops-item-meta">${escapeHtml(scopeLabel(x.scopeType, x.scopeId))} <span class="ops-pill">${escapeHtml(x.crewCount || 0)} CREW</span></div>
+        </div>
+        <div class="ops-item-meta" style="text-align:right">${escapeHtml(x.owner || '-')}</div>
+      </div>
+      ${x.notes ? `<div class="ops-item-note">${escapeHtml(x.notes)}</div>` : ''}
+    </div>`).join('')}</div>`;
+}
+
+function setOpsStatus(listName, id, status) {
+  const db = DB.get();
+  const item = (db[listName] || []).find(x => x.id === id);
+  if (!item) return;
+  item.status = status;
+  item.updatedAt = Date.now();
+  DB.set(db);
+  render();
+}
+
+
+
+
+function buildAuthPanel() {
+  const connected = !!authUser;
+  if (connected) {
+    return `
+      <div class="supabase-box">
+        <div class="cloud-status-line">Status: <span class="cloud-status-good">Signed in</span></div>
+        <div class="cloud-status-line">User: ${escapeHtml(authUser.email || authUser.id)}</div>
+        <div class="autosave-status"><strong>Auto Backup:</strong> ${escapeHtml(cloudStatusText())}</div>
+        <div class="auth-actions">
+          <button class="auth-btn" onclick="pushLocalToSupabase()">SYNC TO SUPABASE</button>
+          <button class="auth-btn secondary" onclick="pullSupabaseToLocal()">LOAD FROM SUPABASE</button>
+          <button class="auth-btn secondary" onclick="signOutUser()">LOG OUT</button>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="auth-grid">
+      <input id="auth-email" type="email" placeholder="Email address">
+      <input id="auth-password" type="password" placeholder="Password">
+    </div>
+    <div class="auth-actions">
+      <button class="auth-btn" onclick="signInWithEmail()">LOG IN</button>
+      <button class="auth-btn secondary" onclick="signUpWithEmail()">CREATE ACCOUNT</button>
+    </div>
+  `;
+}
+
+
+
+
+function buildLockedCloudView() {
+  return `
+    <div class="lock-card">
+      <div class="lock-title">Secure Access Required</div>
+      <div class="lock-sub">Sign in to view or edit project WIP data, inspections, punch items, crew logs, and bulk setup tools.</div>
+      ${buildAuthPanel()}
+      <div class="lock-note">Project data is protected behind authenticated access. Use your Supabase account to continue.</div>
+    </div>
+  `;
+}
+
+
+function buildCloudView() {
+  return `
+    <div class="section-label">CLOUD SYNC / ACCOUNT</div>
+
+    <div class="auth-card">
+      <div class="auth-title">Supabase Account</div>
+      <div class="auth-sub">Sign in to sync this tracker with Supabase and manage WIP data across devices.</div>
+      ${buildAuthPanel()}
+    </div>
+
+    <div class="bulk-card">
+      <div class="bulk-title">Sync Notes</div>
+      <div class="bulk-sub">
+        Use <strong>SYNC TO SUPABASE</strong> to upload the current device data to your cloud database.
+        Use <strong>LOAD FROM SUPABASE</strong> to pull cloud data back onto this device.
+      </div>
+    </div>
+  `;
+}
+
+
+function buildBulkView() {
+  const db = DB.get();
+  const projectId = (typeof getRootProjectId === 'function') ? getRootProjectId() : (db.projects[0]?.id || null);
+  const buildings = sortBuildings(db.buildings.filter(b => b.projectId === projectId));
+  const buildingIds = buildings.map(b => b.id);
+  const floors = sortFloors(db.floors.filter(f => buildingIds.includes(f.buildingId)));
+
+  const buildingOptions = buildings.map(b => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('');
+  const floorOptions = floors.map(f => {
+    const b = db.buildings.find(x => x.id === f.buildingId);
+    return `<option value="${f.id}">${escapeHtml((b?.name || 'Building') + ' - ' + f.name)}</option>`;
+  }).join('');
+
+  return `
+    <div class="section-label">BULK TOOLS / SETUP</div>
+
+    <div class="auth-card">
+      <div class="auth-title">Cloud Account</div>
+      <div class="auth-sub">Sign in to sync this tracker with Supabase and manage WIP data across devices.</div>
+      ${buildAuthPanel()}
+    </div>
+
+    <div class="bulk-card">
+      <div class="bulk-title">Bulk Unit Devices</div>
+      <div class="bulk-sub">Add device packages across a unit range with separate odd/even quantities for apartment layouts.</div>
+      <div class="bulk-grid">
+        <div class="bulk-field bulk-full">
+          <label>Target Floor</label>
+          <select id="bulk-floor">${floorOptions || '<option value="">No floors found</option>'}</select>
+        </div>
+        <div class="bulk-field">
+          <label>Start Unit</label>
+          <input id="bulk-start-unit" type="number" value="101">
+        </div>
+        <div class="bulk-field">
+          <label>End Unit</label>
+          <input id="bulk-end-unit" type="number" value="112">
+        </div>
+        <div class="bulk-field">
+          <label>Odd Unit Qty</label>
+          <input id="bulk-odd-qty" type="number" min="0" value="2">
+        </div>
+        <div class="bulk-field">
+          <label>Even Unit Qty</label>
+          <input id="bulk-even-qty" type="number" min="0" value="3">
+        </div>
+        <div class="bulk-field bulk-full">
+          <label>Device Type</label>
+          <input id="bulk-device-type" value="Horn/Strobe">
+        </div>
+      </div>
+      <button class="bulk-btn" onclick="bulkAddUnitDevices()">ADD UNIT PACKAGE</button>
+    </div>
+
+    <div class="bulk-card">
+      <div class="bulk-title">Stairwell Package</div>
+      <div class="bulk-sub">Add stairwell notification devices and optional pull stations to the selected floor.</div>
+      <div class="bulk-grid">
+        <div class="bulk-field bulk-full">
+          <label>Target Floor</label>
+          <select id="stair-floor">${floorOptions || '<option value="">No floors found</option>'}</select>
+        </div>
+        <div class="bulk-field">
+          <label>Stairwell Count</label>
+          <input id="stair-count" type="number" min="1" value="3">
+        </div>
+        <div class="bulk-field">
+          <label>Add Pull Stations?</label>
+          <select id="stair-pulls">
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+        <div class="bulk-field bulk-full">
+          <label>Notification Device</label>
+          <input id="stair-device-type" value="Horn/Strobe">
+        </div>
+      </div>
+      <button class="bulk-btn" onclick="bulkAddStairwells()">ADD STAIRWELL PACKAGE</button>
+    </div>
+
+    <div class="bulk-card">
+      <div class="bulk-title">Clone Building Layout</div>
+      <div class="bulk-sub">Copy floors, areas, and device layout into a new building with progress reset.</div>
+      <div class="bulk-grid">
+        <div class="bulk-field">
+          <label>Source Building</label>
+          <select id="clone-source">${buildingOptions || '<option value="">No buildings found</option>'}</select>
+        </div>
+        <div class="bulk-field">
+          <label>New Building Name</label>
+          <input id="clone-name" placeholder="Building 4">
+        </div>
+      </div>
+      <button class="bulk-btn" onclick="cloneBuildingFromBulk()">CLONE BUILDING</button>
+    </div>
+  `;
+}
+
+function getOrCreateArea(db, floorId, name) {
+  let area = db.areas.find(a => a.floorId === floorId && String(a.name).toLowerCase() === String(name).toLowerCase());
+  if (!area) {
+    area = { id: uid(), floorId, name, createdAt: Date.now() };
+    db.areas.push(area);
+  }
+  return area;
+}
+
+function bulkAddUnitDevices() {
+  const db = DB.get();
+  const floorId = document.getElementById('bulk-floor')?.value || '';
+  const startUnit = parseInt(document.getElementById('bulk-start-unit')?.value || '0', 10);
+  const endUnit = parseInt(document.getElementById('bulk-end-unit')?.value || '0', 10);
+  const oddQty = parseInt(document.getElementById('bulk-odd-qty')?.value || '0', 10);
+  const evenQty = parseInt(document.getElementById('bulk-even-qty')?.value || '0', 10);
+  const deviceType = document.getElementById('bulk-device-type')?.value.trim() || 'Horn/Strobe';
+
+  if (!floorId || !startUnit || !endUnit || endUnit < startUnit) {
+    alert('Check target floor and unit range.');
+    return;
+  }
+
+  let added = 0;
+  for (let unit = startUnit; unit <= endUnit; unit++) {
+    const area = getOrCreateArea(db, floorId, `Unit ${unit}`);
+    const qty = unit % 2 === 0 ? evenQty : oddQty;
+    for (let i = 0; i < qty; i++) {
+      db.devices.push({
+        id: uid(),
+        areaId: area.id,
+        type: deviceType,
+        location: `Unit ${unit} - #${i + 1}`,
+        stages: [false,false,false,false,false],
+        notes: '',
+        createdAt: Date.now()
+      });
+      added++;
+    }
+  }
+
+  DB.set(db);
+  alert(`Added ${added} devices.`);
+  render();
+}
+
+function bulkAddStairwells() {
+  const db = DB.get();
+  const floorId = document.getElementById('stair-floor')?.value || '';
+  const count = parseInt(document.getElementById('stair-count')?.value || '0', 10);
+  const addPulls = document.getElementById('stair-pulls')?.value === 'yes';
+  const deviceType = document.getElementById('stair-device-type')?.value.trim() || 'Horn/Strobe';
+  const floor = db.floors.find(f => f.id === floorId);
+
+  if (!floorId || !count) {
+    alert('Check target floor and stairwell count.');
+    return;
+  }
+
+  let added = 0;
+  for (let s = 1; s <= count; s++) {
+    const area = getOrCreateArea(db, floorId, `Stairwell ${s}`);
+    db.devices.push({
+      id: uid(),
+      areaId: area.id,
+      type: deviceType,
+      location: `Stairwell ${s} - ${floor?.name || 'Floor'}`,
+      stages: [false,false,false,false,false],
+      notes: '',
+      createdAt: Date.now()
+    });
+    added++;
+
+    if (addPulls) {
+      db.devices.push({
+        id: uid(),
+        areaId: area.id,
+        type: 'Pull Station',
+        location: `Stairwell ${s} - ${floor?.name || 'Floor'} entry`,
+        stages: [false,false,false,false,false],
+        notes: '',
+        createdAt: Date.now()
+      });
+      added++;
+    }
+  }
+
+  DB.set(db);
+  alert(`Added ${added} stairwell devices.`);
+  render();
+}
+
+function cloneBuildingFromBulk() {
+  const sourceId = document.getElementById('clone-source')?.value || '';
+  const newName = document.getElementById('clone-name')?.value.trim() || '';
+  if (!sourceId || !newName) {
+    alert('Pick a source building and enter a new building name.');
+    return;
+  }
+
+  const db = DB.get();
+  const source = db.buildings.find(b => b.id === sourceId);
+  if (!source) return;
+
+  const newBid = uid();
+  db.buildings.push({ id: newBid, projectId: source.projectId, name: newName, notes: source.notes || '', createdAt: Date.now() });
+
+  sortFloors(db.floors.filter(f => f.buildingId === sourceId)).forEach(f => {
+    const newFid = uid();
+    db.floors.push({ id: newFid, buildingId: newBid, name: f.name, createdAt: Date.now() });
+
+    sortAreas(db.areas.filter(a => a.floorId === f.id)).forEach(a => {
+      const newAid = uid();
+      db.areas.push({ id: newAid, floorId: newFid, name: a.name, createdAt: Date.now() });
+
+      sortDevices(db.devices.filter(d => d.areaId === a.id)).forEach(d => {
+        db.devices.push({
+          id: uid(),
+          areaId: newAid,
+          type: d.type,
+          location: d.location,
+          stages: [false,false,false,false,false],
+          notes: '',
+          createdAt: Date.now()
+        });
+      });
+    });
+  });
+
+  DB.set(db);
+  state.appSection = 'wip';
+  state.projectId = source.projectId;
+  state.buildingId = newBid;
+  state.view = 'floors';
+  render();
+}
+
+
+function render() {
+  document.getElementById('app').innerHTML = buildHTML();
+  attachEvents();
+}
+
+function buildHTML() {
+  const locked = !authUser;
+  return `
+    ${buildHeader()}
+    ${locked ? '' : buildBreadcrumb()}
+    <div class="main">
+      ${locked ? buildLockedCloudView() : buildAppTabs()}
+      ${locked ? '' : (state.appSection === 'ops' ? buildOpsView() : state.appSection === 'bulk' ? buildBulkView() : state.appSection === 'cloud' ? buildCloudView() : buildView())}
+    </div>
+    ${state.modal && !locked ? buildModal() : ''}
+    ${state.confirm && !locked ? buildConfirm() : ''}
+  `;
+}
+
+function buildAppTabs() {
+  return `
+    <div class="app-tabs" style="grid-template-columns:1fr 1fr 1fr 1fr;">
+      <button class="app-tab ${state.appSection === 'wip' ? 'active' : ''}" onclick="setAppSection('wip')">WIP</button>
+      <button class="app-tab ${state.appSection === 'ops' ? 'active' : ''}" onclick="setAppSection('ops')">OPS</button>
+      <button class="app-tab ${state.appSection === 'bulk' ? 'active' : ''}" onclick="setAppSection('bulk')">BULK</button>
+      <button class="app-tab ${state.appSection === 'cloud' ? 'active' : ''}" onclick="setAppSection('cloud')">CLOUD</button>
+    </div>
+  `;
+}
+
+function setAppSection(section) {
+  if (!authUser && section !== 'cloud') section = 'cloud';
+  state.appSection = section;
+  render();
+}
+
+function buildHeader() {
+  const db = DB.get();
+  const totalDevices = authUser ? db.devices.length : 0;
+  const doneDevices = authUser ? db.devices.filter(d => (d.stages||[]).every(Boolean)).length : 0;
+  return `
+    <div class="header">
+      <div class="header-left">
+        <span class="header-company">D80 Systems</span>
+        <span class="header-title">FIRE ALARM WIP</span>
+      </div>
+      <div class="header-right">
+        ${authUser ? `<span style="font-size:11px;color:var(--text-muted)">${doneDevices}/${totalDevices} DEV</span>` : ''}
+        <button class="icon-btn" onclick="setAppSection('cloud')" style="border-color:${authUser ? '#2ecc71' : '#3498db'};color:${authUser ? '#2ecc71' : '#3498db'};">☁ ${authUser ? 'SYNC' : 'LOGIN'}</button>
+        ${authUser ? `<button class="icon-btn" onclick="generateReport()" style="border-color:#3498db;color:#3498db;">📄 REPORT</button>
+        <button class="icon-btn" onclick="exportData()">⬇ EXPORT</button>
+        <button class="icon-btn" onclick="importTrigger()">⬆ IMPORT</button>
+        <button class="icon-btn" onclick="resetData()" style="border-color:#e74c3c;color:#e74c3c;">↺ RESET</button>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function navTo(level) {
+  const views = ['projects','buildings','floors','areas','devices'];
+  const clears = [
+    ['projectId','buildingId','floorId','areaId'],
+    ['buildingId','floorId','areaId'],
+    ['floorId','areaId'],
+    ['areaId'],
+    []
+  ];
+  state.view = views[level];
+  clears[level].forEach(k => state[k] = null);
+  render();
+}
+
+function buildBreadcrumb() {
+  const db = DB.get();
+  const crumbs = [{ label: 'PROJECTS', level: 0 }];
+  if (state.projectId) {
+    const p = db.projects.find(x => x.id === state.projectId);
+    crumbs.push({ label: p?.name || '-', level: 1 });
+  }
+  if (state.buildingId) {
+    const b = db.buildings.find(x => x.id === state.buildingId);
+    crumbs.push({ label: b?.name || '-', level: 2 });
+  }
+  if (state.floorId) {
+    const f = db.floors.find(x => x.id === state.floorId);
+    crumbs.push({ label: f?.name || '-', level: 3 });
+  }
+  if (state.areaId) {
+    const a = db.areas.find(x => x.id === state.areaId);
+    crumbs.push({ label: a?.name || '-', level: 4 });
+  }
+
+  const backLevel = crumbs.length >= 2 ? crumbs[crumbs.length - 2].level : null;
+  const backBtn = backLevel !== null
+    ? `<button onclick="navTo(${backLevel})" style="background:var(--surface);border:1px solid var(--border2);border-radius:4px;color:var(--orange);font-family:var(--mono);font-size:12px;padding:4px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">◀ BACK</button>`
+    : '';
+
+  const parts = crumbs.map((c, i) => {
+    const isLast = i === crumbs.length - 1;
+    const sep = i > 0 ? `<span class="crumb-sep"> › </span>` : '';
+    if (isLast) return `${sep}<span class="crumb-current">${c.label}</span>`;
+    return `${sep}<span class="crumb" onclick="navTo(${c.level})">${c.label}</span>`;
+  });
+
+  return `<div class="breadcrumb">${backBtn}${parts.join('')}</div>`;
+}
+
+function buildView() {
+  switch (state.view) {
+    case 'projects': return buildProjectsView();
+    case 'buildings': return buildBuildingsView();
+    case 'floors': return buildFloorsView();
+    case 'areas': return buildAreasView();
+    case 'devices': return buildDevicesView();
+    default: return '';
+  }
+}
+
+function buildProjectsView() {
+  const db = DB.get();
+  const projects = db.projects;
+  let html = `<div class="section-label">ACTIVE PROJECTS</div>`;
+  if (!projects.length) html += `<div class="empty">No projects yet.<br>Tap below to add your first project.</div>`;
+  projects.forEach(p => {
+    const prog = projectProgress(p.id);
+    const pct = prog.pct;
+    const color = progressColor(pct);
+    const badge = pct === 100 ? 'badge-complete' : pct > 0 ? 'badge-active' : 'badge-pending';
+    const badgeText = pct === 100 ? 'COMPLETE' : pct > 0 ? 'ACTIVE' : 'PENDING';
+    html += `
+      <div class="card" onclick="drillProject('${p.id}')">
+        <div class="card-inner">
+          <div class="card-top">
+            <div>
+              <div class="card-name">${escapeHtml(p.name)}</div>
+              <div class="card-sub">${escapeHtml(p.type || '')} · ${prog.buildingCount} BLDG · ${prog.deviceCount} DEVICES</div>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <span class="card-badge ${badge}">${badgeText}</span>
+              <button class="btn-delete" onclick="event.stopPropagation();confirmDelete('project','${p.id}','${escStr(p.name)}')" title="Delete">✕</button>
+            </div>
+          </div>
+          <div class="progress-row">
+            <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
+            <span class="progress-pct" style="color:${color}">${pct}%</span>
+          </div>
+        </div>
+      </div>`;
+  });
+  html += buildProjectOpsSummary();
+  html += `<button class="btn-add" onclick="openModal('project',null)">+ ADD PROJECT</button>`;
+  return html;
+}
+
+function buildBuildingsView() {
+  const db = DB.get();
+  const project = db.projects.find(p => p.id === state.projectId);
+  const buildings = sortBuildings(db.buildings.filter(b => b.projectId === state.projectId));
+  let html = `<div class="section-label">BUILDINGS — ${escapeHtml(project?.name || '')}</div>`;
+  if (!buildings.length) html += `<div class="empty">No buildings yet.<br>Add buildings to get started.</div>`;
+  buildings.forEach(b => {
+    const prog = buildingProgress(b.id);
+    const pct = prog.pct;
+    const color = progressColor(pct);
+    const floors = db.floors.filter(f => f.buildingId === b.id);
+    html += `
+      <div class="card" onclick="drillBuilding('${b.id}')">
+        <div class="card-inner">
+          <div class="card-top">
+            <div>
+              <div class="card-name">${escapeHtml(b.name)}</div>
+              <div class="card-sub">${floors.length} FLOORS · ${prog.deviceCount} DEVICES</div>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <button class="btn-delete" onclick="event.stopPropagation();confirmDelete('building','${b.id}','${escStr(b.name)}')" title="Delete">✕</button>
+            </div>
+          </div>
+          <div class="progress-row">
+            <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
+            <span class="progress-pct" style="color:${color}">${pct}%</span>
+          </div>
+        </div>
+      </div>`;
+  });
+  html += buildOpsPanel('project', state.projectId);
+  html += `<button class="btn-add" onclick="openModal('building','${state.projectId}')">+ ADD BUILDING</button>`;
+  return html;
+}
+
+function buildFloorsView() {
+  const db = DB.get();
+  const building = db.buildings.find(b => b.id === state.buildingId);
+  const floors = sortFloors(db.floors.filter(f => f.buildingId === state.buildingId));
+  let html = `<div class="section-label">FLOORS — ${escapeHtml(building?.name || '')}</div>`;
+  if (!floors.length) html += `<div class="empty">No floors yet.</div>`;
+  floors.forEach(f => {
+    const prog = floorProgress(f.id);
+    const pct = prog.pct;
+    const color = progressColor(pct);
+    const areas = sortAreas(db.areas.filter(a => a.floorId === f.id));
+    html += `
+      <div class="card" onclick="drillFloor('${f.id}')">
+        <div class="card-inner">
+          <div class="card-top">
+            <div>
+              <div class="card-name">${escapeHtml(f.name)}</div>
+              <div class="card-sub">${areas.length} AREAS · ${prog.deviceCount} DEVICES</div>
+            </div>
+            <button class="btn-delete" onclick="event.stopPropagation();confirmDelete('floor','${f.id}','${escStr(f.name)}')" title="Delete">✕</button>
+          </div>
+          <div class="progress-row">
+            <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
+            <span class="progress-pct" style="color:${color}">${pct}%</span>
+          </div>
+        </div>
+      </div>`;
+  });
+  html += buildOpsPanel('building', state.buildingId);
+  html += `<button class="btn-add" onclick="openModal('floor','${state.buildingId}')">+ ADD FLOOR</button>`;
+  return html;
+}
+
+function buildAreasView() {
+  const db = DB.get();
+  const floor = db.floors.find(f => f.id === state.floorId);
+  const areas = sortAreas(db.areas.filter(a => a.floorId === state.floorId));
+  let html = `<div class="section-label">AREAS — ${escapeHtml(floor?.name || '')}</div>`;
+  if (!areas.length) html += `<div class="empty">No areas yet.<br>Add corridors, units, closets, mechanical rooms, etc.</div>`;
+  areas.forEach(a => {
+    const prog = areaProgress(a.id);
+    const pct = prog.pct;
+    const color = progressColor(pct);
+    const devices = sortDevices(db.devices.filter(d => d.areaId === a.id));
+    const stageCounts = STAGES.map((s, si) => devices.filter(d => (d.stages||[])[si]).length);
+    html += `
+      <div class="card" onclick="drillArea('${a.id}')">
+        <div class="card-inner">
+          <div class="card-top">
+            <div>
+              <div class="card-name">${escapeHtml(a.name)}</div>
+              <div class="card-sub">${prog.deviceCount} DEVICES</div>
+            </div>
+            <button class="btn-delete" onclick="event.stopPropagation();confirmDelete('area','${a.id}','${escStr(a.name)}')" title="Delete">✕</button>
+          </div>
+          <div class="progress-row">
+            <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
+            <span class="progress-pct" style="color:${color}">${pct}%</span>
+          </div>
+          ${prog.deviceCount > 0 ? `
+          <div class="phase-dots">
+            ${STAGES.map((s,si) => {
+              const cnt = stageCounts[si];
+              const cls = cnt === prog.deviceCount ? 'done' : cnt > 0 ? 'partial' : '';
+              return `<span class="phase-dot ${cls}">${s} ${cnt}/${prog.deviceCount}</span>`;
+            }).join('')}
+          </div>` : ''}
+        </div>
+      </div>`;
+  });
+  html += buildOpsPanel('floor', state.floorId);
+  html += `<button class="btn-add" onclick="openModal('area','${state.floorId}')">+ ADD AREA</button>`;
+  return html;
+}
+
+function buildDevicesView() {
+  const db = DB.get();
+  const area = db.areas.find(a => a.id === state.areaId);
+  const devices = sortDevices(db.devices.filter(d => d.areaId === state.areaId));
+  const prog = areaProgress(state.areaId);
+
+  let html = `
+    <div class="section-label">DEVICES — ${escapeHtml(area?.name || '')}</div>`;
+  html += `
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-val" style="color:var(--text)">${prog.deviceCount}</div><div class="stat-lbl">DEVICES</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:${progressColor(prog.pct)}">${prog.pct}%</div><div class="stat-lbl">COMPLETE</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:var(--green)">${devices.filter(d=>(d.stages||[]).every(Boolean)).length}</div><div class="stat-lbl">DONE</div></div>
+    </div>`;
+
+  if (!devices.length) html += `<div class="empty">No devices yet.<br>Add devices to this area.</div>`;
+
+  devices.forEach((dev, i) => {
+    const expanded = state.expandedDevices[dev.id];
+    const stages = dev.stages || [false,false,false,false,false];
+    const devPct = Math.round(stages.filter(Boolean).length / 5 * 100);
+    const allDone = stages.every(Boolean);
+    html += `
+      <div class="device-row" style="${allDone ? 'border-color:var(--green-dim)' : ''}">
+        <div class="device-header" onclick="toggleDevice('${dev.id}')">
+          <span class="device-num">#${String(i+1).padStart(2,'0')}</span>
+          <span class="device-type">${escapeHtml(dev.type)}</span>
+          <span class="device-location">${escapeHtml(dev.location||'')}</span>
+          <span style="font-size:11px;color:${progressColor(devPct)};min-width:32px;text-align:right">${devPct}%</span>
+          <button class="btn-delete" onclick="event.stopPropagation();confirmDelete('device','${dev.id}','${escStr(dev.type)}')" style="margin-left:4px">✕</button>
+          <span style="color:var(--text-muted);font-size:12px;margin-left:4px">${expanded?'▲':'▼'}</span>
+        </div>
+        ${expanded ? `
+        <div class="stages">
+          ${STAGES.map((s,si) => `
+            <span class="stage-pill s${si} ${stages[si]?'done':''}" onclick="toggleStage('${dev.id}',${si})">${s}</span>
+          `).join('')}
+        </div>
+        <div class="device-notes">
+          <div class="note-label">NOTES</div>
+          <textarea class="note-input" placeholder="Field notes, deficiencies, wire tags..." onchange="saveNote('${dev.id}',this.value)" onblur="saveNote('${dev.id}',this.value)">${escapeHtml(dev.notes||'')}</textarea>
+        </div>` : ''}
+      </div>`;
+  });
+
+  html += buildOpsPanel('area', state.areaId);
+  html += `<button class="btn-add" onclick="openModal('device','${state.areaId}')">+ ADD DEVICE</button>`;
+  return html;
+}
+
+function buildModal() {
+  const { type, parentId } = state.modal;
+  const titles = { project:'NEW PROJECT', building:'NEW BUILDING', floor:'NEW FLOOR', area:'NEW AREA', device:'NEW DEVICE', inspection:'NEW INSPECTION', deficiency:'NEW PUNCH ITEM' };
+  let fields = '';
+
+  if (type === 'project') {
+    fields = `<label class="modal-label">PROJECT NAME</label>
+      <input class="modal-input" id="m-name" placeholder="e.g. Eastfield Village" autofocus>
+      <label class="modal-label">TYPE</label>
+      <input class="modal-input" id="m-type" placeholder="e.g. Multifamily, Commercial">
+      <label class="modal-label">LOCATION / NOTES</label>
+      <input class="modal-input" id="m-notes" placeholder="e.g. Southeast US, AHJ: County Fire">`;
+  } else if (type === 'building') {
+    fields = `<label class="modal-label">BUILDING NAME</label>
+      <input class="modal-input" id="m-name" placeholder="e.g. Building 1" autofocus>
+      <label class="modal-label">NOTES</label>
+      <input class="modal-input" id="m-notes" placeholder="e.g. 3-story, 24 units">`;
+  } else if (type === 'floor') {
+    fields = `<label class="modal-label">FLOOR NAME</label>
+      <input class="modal-input" id="m-name" placeholder="e.g. Floor 1, Ground Floor" autofocus>`;
+  } else if (type === 'area') {
+    fields = `<label class="modal-label">AREA NAME</label>
+      <input class="modal-input" id="m-name" placeholder="e.g. Unit 101, Corridor, MDF Closet" autofocus>`;
+  } else if (type === 'inspection') {
+    fields = `<label class="modal-label">INSPECTION TYPE</label>
+      <input class="modal-input" id="m-type" placeholder="e.g. Close-in, Pre-test, Final" autofocus>
+      <div class="modal-row">
+        <div>
+          <label class="modal-label">DATE</label>
+          <input class="modal-input" id="m-date" type="date" value="${todayISO()}">
+        </div>
+        <div>
+          <label class="modal-label">STATUS</label>
+          <select class="modal-input" id="m-status">
+            <option>Scheduled</option>
+            <option>Ready</option>
+            <option>Passed</option>
+            <option>Failed</option>
+            <option>Reschedule</option>
+          </select>
+        </div>
+      </div>
+      <label class="modal-label">AHJ / INSPECTOR</label>
+      <input class="modal-input" id="m-ahj" placeholder="e.g. County Fire Marshal">
+      <label class="modal-label">NOTES</label>
+      <textarea class="modal-input textarea" id="m-notes" placeholder="Readiness, required corrections, GC coordination..."></textarea>`;
+  } else if (type === 'deficiency') {
+    fields = `<label class="modal-label">DEFICIENCY / PUNCH ITEM</label>
+      <input class="modal-input" id="m-title" placeholder="e.g. Fire caulk missing above Unit 105" autofocus>
+      <div class="modal-row">
+        <div>
+          <label class="modal-label">PRIORITY</label>
+          <select class="modal-input" id="m-priority">
+            <option>High</option>
+            <option selected>Medium</option>
+            <option>Low</option>
+          </select>
+        </div>
+        <div>
+          <label class="modal-label">STATUS</label>
+          <select class="modal-input" id="m-status">
+            <option>Open</option>
+            <option>In Progress</option>
+            <option>Blocked</option>
+            <option>Closed</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-row">
+        <div>
+          <label class="modal-label">OWNER / RESPONSIBLE PARTY</label>
+          <input class="modal-input" id="m-owner" placeholder="e.g. Electrical, GC, D80">
+        </div>
+        <div>
+          <label class="modal-label">DUE DATE</label>
+          <input class="modal-input" id="m-due" type="date">
+        </div>
+      </div>
+      <label class="modal-label">NOTES</label>
+      <textarea class="modal-input textarea" id="m-notes" placeholder="What happened, what fixes it, who needs kicked lovingly in the ass..."></textarea>`;
+  } else if (type === 'device') {
+    fields = `<label class="modal-label">DEVICE TYPE</label>
+      <input class="modal-input" id="m-type" placeholder="e.g. Smoke Detector, Pull Station, Horn/Strobe" list="device-types" autofocus>
+      <datalist id="device-types">
+        <option>Smoke Detector</option>
+        <option>Heat Detector</option>
+        <option>Pull Station</option>
+        <option>Horn/Strobe</option>
+        <option>Strobe Only</option>
+        <option>Horn Only</option>
+        <option>Duct Detector</option>
+        <option>Monitor Module</option>
+        <option>Relay Module</option>
+        <option>NAC Booster</option>
+        <option>CO Detector</option>
+        <option>Mini Horn</option>
+        <option>Speaker/Strobe</option>
+      </datalist>
+      <div class="modal-row">
+        <div>
+          <label class="modal-label">LOCATION DESCRIPTION</label>
+          <input class="modal-input" id="m-location" placeholder="e.g. Bedroom ceiling">
+        </div>
+        <div>
+          <label class="modal-label">QTY (adds multiples)</label>
+          <input class="modal-input" id="m-qty" type="number" min="1" max="100" value="1" placeholder="1">
+        </div>
+      </div>`;
+  } else if (type === 'inspection') {
+    const scope = parseScopeParent(parentId);
+    fields = `<label class="modal-label">SCOPE</label>
+      <input class="modal-input" value="${escapeHtml(scopeLabel(scope.scopeType, scope.scopeId))}" disabled>
+      <label class="modal-label">INSPECTION TYPE</label>
+      <input class="modal-input" id="m-type" placeholder="e.g. Close-in, Final, Reinspection" autofocus>
+      <div class="modal-row">
+        <div>
+          <label class="modal-label">DATE</label>
+          <input class="modal-input" id="m-date" type="date">
+        </div>
+        <div>
+          <label class="modal-label">STATUS</label>
+          <input class="modal-input" id="m-status" placeholder="Scheduled, Ready, Passed">
+        </div>
+      </div>
+      <label class="modal-label">AHJ / INSPECTOR</label>
+      <input class="modal-input" id="m-inspector" placeholder="Inspector name, AHJ, phone">
+      <label class="modal-label">NOTES</label>
+      <input class="modal-input" id="m-notes" placeholder="What needs to be ready / known issues">`;
+  } else if (type === 'deficiency') {
+    const scope = parseScopeParent(parentId);
+    fields = `<label class="modal-label">SCOPE</label>
+      <input class="modal-input" value="${escapeHtml(scopeLabel(scope.scopeType, scope.scopeId))}" disabled>
+      <label class="modal-label">DEFICIENCY</label>
+      <input class="modal-input" id="m-title" placeholder="e.g. Fire caulk missing above Unit 105" autofocus>
+      <div class="modal-row">
+        <div>
+          <label class="modal-label">PRIORITY</label>
+          <input class="modal-input" id="m-priority" placeholder="High, Normal, Low">
+        </div>
+        <div>
+          <label class="modal-label">STATUS</label>
+          <input class="modal-input" id="m-status" placeholder="Open, In Progress, Closed">
+        </div>
+      </div>
+      <label class="modal-label">RESPONSIBLE PARTY</label>
+      <input class="modal-input" id="m-owner" placeholder="D80, electrician, GC, firestop crew">
+      <label class="modal-label">NOTES</label>
+      <input class="modal-input" id="m-notes" placeholder="Notes, location details, responsible party, and follow-up requirements.">`;
+  } else if (type === 'material') {
+    const scope = parseScopeParent(parentId);
+    fields = `<label class="modal-label">SCOPE</label>
+      <input class="modal-input" value="${escapeHtml(scopeLabel(scope.scopeType, scope.scopeId))}" disabled>
+      <label class="modal-label">MATERIAL / ITEM</label>
+      <input class="modal-input" id="m-item" placeholder="e.g. Horn/Strobes, FPLP, fire caulk" autofocus>
+      <div class="modal-row">
+        <div>
+          <label class="modal-label">QTY NEEDED</label>
+          <input class="modal-input" id="m-qty-needed" type="number" min="0" placeholder="0">
+        </div>
+        <div>
+          <label class="modal-label">QTY ON HAND</label>
+          <input class="modal-input" id="m-qty-hand" type="number" min="0" placeholder="0">
+        </div>
+      </div>
+      <div class="modal-row">
+        <div>
+          <label class="modal-label">NEEDED BY</label>
+          <input class="modal-input" id="m-date" type="date">
+        </div>
+        <div>
+          <label class="modal-label">STATUS</label>
+          <input class="modal-input" id="m-status" placeholder="Needed, Ordered, Delivered">
+        </div>
+      </div>
+      <label class="modal-label">NOTES</label>
+      <input class="modal-input" id="m-notes" placeholder="Vendor, PO, delivery details, or notes">`;
+  } else if (type === 'crewLog') {
+    const scope = parseScopeParent(parentId);
+    fields = `<label class="modal-label">SCOPE</label>
+      <input class="modal-input" value="${escapeHtml(scopeLabel(scope.scopeType, scope.scopeId))}" disabled>
+      <div class="modal-row">
+        <div>
+          <label class="modal-label">DATE</label>
+          <input class="modal-input" id="m-date" type="date">
+        </div>
+        <div>
+          <label class="modal-label">CREW COUNT</label>
+          <input class="modal-input" id="m-crew-count" type="number" min="0" placeholder="0">
+        </div>
+      </div>
+      <label class="modal-label">CREW / COMPANY</label>
+      <input class="modal-input" id="m-owner" placeholder="e.g. D80, EC crew, subs">
+      <label class="modal-label">WORK PERFORMED / BLOCKERS / TOMORROW PLAN</label>
+      <input class="modal-input" id="m-notes" placeholder="Daily field notes, blockers, progress, and next-step planning.">`;
+  }
+
+  return `
+    <div class="modal-overlay" onclick="closeModal(event)">
+      <div class="modal">
+        <div class="modal-title">${titles[type]}</div>
+        ${fields}
+        <button class="btn-primary" onclick="saveModal('${type}','${parentId||''}')">SAVE</button>
+        <button class="btn-cancel" onclick="state.modal=null;render()">CANCEL</button>
+      </div>
+    </div>`;
+}
+
+function buildConfirm() {
+  const { msg } = state.confirm;
+  return `
+    <div class="confirm-overlay">
+      <div class="confirm-box">
+        <div class="confirm-title">DELETE?</div>
+        <div class="confirm-msg">${msg}</div>
+        <div class="confirm-btns">
+          <button class="btn-confirm-yes" onclick="runConfirm()">DELETE</button>
+          <button class="btn-confirm-no" onclick="state.confirm=null;render()">CANCEL</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function openModal(type, parentId) { state.modal = { type, parentId }; render(); }
+function closeModal(e) { if (e.target.classList.contains('modal-overlay')) { state.modal = null; render(); } }
+
+function saveModal(type, parentId) {
+  const db = DB.get();
+  const name = document.getElementById('m-name')?.value.trim();
+  const mtype = document.getElementById('m-type')?.value.trim();
+  const notes = document.getElementById('m-notes')?.value.trim();
+  const location = document.getElementById('m-location')?.value.trim();
+  const qty = parseInt(document.getElementById('m-qty')?.value || '1', 10) || 1;
+
+  if (type === 'project') {
+    if (!name) return;
+    db.projects.push({ id: uid(), name, type: mtype||'', notes: notes||'', createdAt: Date.now() });
+  } else if (type === 'building') {
+    if (!name) return;
+    db.buildings.push({ id: uid(), projectId: parentId, name, notes: notes||'', createdAt: Date.now() });
+  } else if (type === 'floor') {
+    if (!name) return;
+    db.floors.push({ id: uid(), buildingId: parentId, name, createdAt: Date.now() });
+  } else if (type === 'area') {
+    if (!name) return;
+    db.areas.push({ id: uid(), floorId: parentId, name, createdAt: Date.now() });
+  } else if (type === 'inspection') {
+    const [scopeType, scopeId] = String(parentId || '').split('|');
+    const date = document.getElementById('m-date')?.value || '';
+    const status = document.getElementById('m-status')?.value || 'Scheduled';
+    const ahj = document.getElementById('m-ahj')?.value.trim() || '';
+    if (!mtype || !scopeType || !scopeId) return;
+    db.inspections.push({ id: uid(), scopeType, scopeId, type: mtype, date, status, ahj, notes: notes||'', createdAt: Date.now() });
+  } else if (type === 'deficiency') {
+    const [scopeType, scopeId] = String(parentId || '').split('|');
+    const title = document.getElementById('m-title')?.value.trim();
+    const priority = document.getElementById('m-priority')?.value || 'Medium';
+    const status = document.getElementById('m-status')?.value || 'Open';
+    const owner = document.getElementById('m-owner')?.value.trim() || '';
+    const dueDate = document.getElementById('m-due')?.value || '';
+    if (!title || !scopeType || !scopeId) return;
+    db.deficiencies.push({ id: uid(), scopeType, scopeId, title, priority, status, owner, dueDate, notes: notes||'', createdAt: Date.now() });
+  } else if (type === 'device') {
+    if (!mtype) return;
+    for (let i = 0; i < Math.min(qty, 100); i++) {
+      db.devices.push({ id: uid(), areaId: parentId, type: mtype, location: location||'', stages: [false,false,false,false,false], notes: '', createdAt: Date.now() });
+    }
+  } else if (type === 'inspection') {
+    const scope = parseScopeParent(parentId);
+    const date = document.getElementById('m-date')?.value || '';
+    const status = document.getElementById('m-status')?.value.trim() || 'Scheduled';
+    const inspector = document.getElementById('m-inspector')?.value.trim() || '';
+    if (!mtype && !date) return;
+    db.inspections.push({ id: uid(), scopeType: scope.scopeType, scopeId: scope.scopeId, type: mtype||'', date, status, inspector, notes: notes||'', createdAt: Date.now() });
+  } else if (type === 'deficiency') {
+    const scope = parseScopeParent(parentId);
+    const title = document.getElementById('m-title')?.value.trim() || '';
+    const priority = document.getElementById('m-priority')?.value.trim() || 'Normal';
+    const status = document.getElementById('m-status')?.value.trim() || 'Open';
+    const owner = document.getElementById('m-owner')?.value.trim() || '';
+    if (!title) return;
+    db.deficiencies.push({ id: uid(), scopeType: scope.scopeType, scopeId: scope.scopeId, title, priority, status, owner, notes: notes||'', createdAt: Date.now() });
+  } else if (type === 'material') {
+    const scope = parseScopeParent(parentId);
+    const item = document.getElementById('m-item')?.value.trim() || '';
+    const qtyNeeded = parseInt(document.getElementById('m-qty-needed')?.value || '0', 10) || 0;
+    const qtyOnHand = parseInt(document.getElementById('m-qty-hand')?.value || '0', 10) || 0;
+    const date = document.getElementById('m-date')?.value || '';
+    const status = document.getElementById('m-status')?.value.trim() || 'Needed';
+    if (!item) return;
+    db.materials.push({ id: uid(), scopeType: scope.scopeType, scopeId: scope.scopeId, item, qtyNeeded, qtyOnHand, date, status, notes: notes||'', createdAt: Date.now() });
+  } else if (type === 'crewLog') {
+    const scope = parseScopeParent(parentId);
+    const date = document.getElementById('m-date')?.value || new Date().toISOString().split('T')[0];
+    const crewCount = parseInt(document.getElementById('m-crew-count')?.value || '0', 10) || 0;
+    const owner = document.getElementById('m-owner')?.value.trim() || '';
+    if (!notes && !crewCount && !owner) return;
+    db.crewLogs.push({ id: uid(), scopeType: scope.scopeType, scopeId: scope.scopeId, date, crewCount, owner, notes: notes||'', createdAt: Date.now() });
+  }
+
+  DB.set(db);
+  state.modal = null;
+  render();
+}
+
+function toggleDevice(id) {
+  state.expandedDevices[id] = !state.expandedDevices[id];
+  render();
+}
+
+function toggleStage(deviceId, stageIdx) {
+  const db = DB.get();
+  const dev = db.devices.find(d => d.id === deviceId);
+  if (!dev) return;
+  if (!dev.stages) dev.stages = [false,false,false,false,false];
+  dev.stages[stageIdx] = !dev.stages[stageIdx];
+  DB.set(db);
+  render();
+}
+
+function saveNote(deviceId, value) {
+  const db = DB.get();
+  const dev = db.devices.find(d => d.id === deviceId);
+  if (!dev) return;
+  dev.notes = value;
+  DB.set(db);
+}
+
+function drillProject(id) { state.projectId = id; state.view = 'buildings'; render(); }
+function drillBuilding(id) { state.buildingId = id; state.view = 'floors'; render(); }
+function drillFloor(id) { state.floorId = id; state.view = 'areas'; render(); }
+function drillArea(id) { state.areaId = id; state.view = 'devices'; render(); }
+
+function confirmDelete(type, id, name) {
+  state.confirm = {
+    msg: `Delete <strong>${name}</strong> and all data inside it? This cannot be undone.`,
+    onConfirm: () => deleteItem(type, id)
+  };
+  render();
+}
+
+function runConfirm() {
+  if (state.confirm?.onConfirm) state.confirm.onConfirm();
+  state.confirm = null;
+}
+
+
+function deleteOpsItem(type, id) {
+  const db = DB.get();
+  if (type === 'inspection') db.inspections = db.inspections.filter(x => x.id !== id);
+  if (type === 'deficiency') db.deficiencies = db.deficiencies.filter(x => x.id !== id);
+  DB.set(db);
+  render();
+}
+
+function removeOpsForScopes(db, scopes) {
+  const key = x => `${x.scopeType}|${x.scopeId}`;
+  const bad = new Set(scopes.map(s => `${s.type}|${s.id}`));
+  db.inspections = db.inspections.filter(x => !bad.has(key(x)));
+  db.deficiencies = db.deficiencies.filter(x => !bad.has(key(x)));
+}
+function deleteItem(type, id) {
+  const db = DB.get();
+  if (type === 'project') {
+    const bids = db.buildings.filter(b => b.projectId === id).map(b => b.id);
+    const fids = db.floors.filter(f => bids.includes(f.buildingId)).map(f => f.id);
+    const aids = db.areas.filter(a => fids.includes(a.floorId)).map(a => a.id);
+    const dids = db.devices.filter(d => aids.includes(d.areaId)).map(d => d.id);
+    removeOpsForScopes(db, [{type:'project',id}, ...bids.map(x=>({type:'building',id:x})), ...fids.map(x=>({type:'floor',id:x})), ...aids.map(x=>({type:'area',id:x})), ...dids.map(x=>({type:'device',id:x}))]);
+    db.devices = db.devices.filter(d => !aids.includes(d.areaId));
+    db.areas = db.areas.filter(a => !fids.includes(a.floorId));
+    db.floors = db.floors.filter(f => !bids.includes(f.buildingId));
+    db.buildings = db.buildings.filter(b => b.projectId !== id);
+    db.projects = db.projects.filter(p => p.id !== id);
+    state.view = 'projects'; state.projectId = null; state.buildingId = null; state.floorId = null; state.areaId = null;
+  } else if (type === 'building') {
+    const fids = db.floors.filter(f => f.buildingId === id).map(f => f.id);
+    const aids = db.areas.filter(a => fids.includes(a.floorId)).map(a => a.id);
+    const dids = db.devices.filter(d => aids.includes(d.areaId)).map(d => d.id);
+    removeOpsForScopes(db, [{type:'building',id}, ...fids.map(x=>({type:'floor',id:x})), ...aids.map(x=>({type:'area',id:x})), ...dids.map(x=>({type:'device',id:x}))]);
+    db.devices = db.devices.filter(d => !aids.includes(d.areaId));
+    db.areas = db.areas.filter(a => !fids.includes(a.floorId));
+    db.floors = db.floors.filter(f => f.buildingId !== id);
+    db.buildings = db.buildings.filter(b => b.id !== id);
+    state.view = 'buildings'; state.buildingId = null; state.floorId = null; state.areaId = null;
+  } else if (type === 'floor') {
+    const aids = db.areas.filter(a => a.floorId === id).map(a => a.id);
+    const dids = db.devices.filter(d => aids.includes(d.areaId)).map(d => d.id);
+    removeOpsForScopes(db, [{type:'floor',id}, ...aids.map(x=>({type:'area',id:x})), ...dids.map(x=>({type:'device',id:x}))]);
+    db.devices = db.devices.filter(d => !aids.includes(d.areaId));
+    db.areas = db.areas.filter(a => a.floorId !== id);
+    db.floors = db.floors.filter(f => f.id !== id);
+    state.view = 'floors'; state.floorId = null; state.areaId = null;
+  } else if (type === 'area') {
+    const dids = db.devices.filter(d => d.areaId === id).map(d => d.id);
+    removeOpsForScopes(db, [{type:'area',id}, ...dids.map(x=>({type:'device',id:x}))]);
+    db.devices = db.devices.filter(d => d.areaId !== id);
+    db.areas = db.areas.filter(a => a.id !== id);
+    state.view = 'areas'; state.areaId = null;
+  } else if (type === 'device') {
+    removeOpsForScopes(db, [{type:'device',id}]);
+    db.devices = db.devices.filter(d => d.id !== id);
+  }
+  DB.set(db);
+  render();
+}
+
+function exportData() {
+  const db = DB.get();
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `d80-wip-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+
+function downloadCSV(filename, rows) {
+  const csv = rows.map(row => row.map(cell => {
+    const value = String(cell ?? '');
+    return '"' + value.replace(/"/g, '""') + '"';
+  }).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportOpsCSV(type) {
+  const db = DB.get();
+  const date = new Date().toISOString().split('T')[0];
+
+  if (type === 'deficiencies') {
+    const rows = [['Scope','Title','Priority','Status','Owner','Notes','Created']];
+    (db.deficiencies || []).forEach(x => rows.push([scopeLabel(x.scopeType, x.scopeId), x.title, x.priority, x.status, x.owner, x.notes, new Date(x.createdAt || Date.now()).toLocaleString()]));
+    downloadCSV(`d80-deficiencies-${date}.csv`, rows);
+  } else if (type === 'materials') {
+    const rows = [['Scope','Item','Qty Needed','Qty On Hand','Needed By','Status','Notes']];
+    (db.materials || []).forEach(x => rows.push([scopeLabel(x.scopeType, x.scopeId), x.item, x.qtyNeeded, x.qtyOnHand, x.date, x.status, x.notes]));
+    downloadCSV(`d80-materials-${date}.csv`, rows);
+  } else if (type === 'crewLogs') {
+    const rows = [['Scope','Date','Crew Count','Crew/Company','Notes']];
+    (db.crewLogs || []).forEach(x => rows.push([scopeLabel(x.scopeType, x.scopeId), x.date, x.crewCount, x.owner, x.notes]));
+    downloadCSV(`d80-crew-logs-${date}.csv`, rows);
+  }
+}
+
+
+function importTrigger() { document.getElementById('import-file').click(); }
+
+function resetData() {
+  state.confirm = {
+    msg: 'Clear ALL data and reload Eastfield Village seed? Export first to save anything.',
+    onConfirm: () => { localStorage.clear(); location.reload(); }
+  };
+  render();
+}
+
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      DB.set(data);
+      render();
+    } catch { alert('Invalid file.'); }
+  };
+  reader.readAsText(file);
+}
+
+function generateReport() {
+  const db = DB.get();
+  if (!db.projects.length) {
+    alert('No project data to report.');
+    return;
+  }
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
+  const timeStr = now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+  const STAGE_LABELS = ['Boxed','Wired','Res. Test','Device','Tested'];
+  const STAGE_COLORS = ['#3498DB','#C85A00','#D4A010','#7B4FB0','#1A6B3C'];
+
+  function pctColor(p){return p===100?'#1A6B3C':p>0?'#C85A00':'#9AA4B2';}
+
+  function statusBadge(p){
+    if(p===100) return '<span style="display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:3px;letter-spacing:1px;background:#E8F5EE;color:#1A6B3C;border:1px solid #70C090">COMPLETE</span>';
+    if(p>0) return '<span style="display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:3px;letter-spacing:1px;background:#FFF0E6;color:#C85A00;border:1px solid #F0A060">ACTIVE</span>';
+    return '<span style="display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:3px;letter-spacing:1px;background:#F4F6F9;color:#4A5568;border:1px solid #D8DDE6">PENDING</span>';
+  }
+
+  function dot(done){
+    return done
+      ? '<div style="display:inline-block;width:16px;height:16px;border-radius:50%;background:#1A6B3C;border:2px solid #1A6B3C;"></div>'
+      : '<div style="display:inline-block;width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid #D8DDE6;"></div>';
+  }
+
+  function progBar(p){
+    const c=pctColor(p);
+    return '<div style="display:flex;align-items:center;gap:8px;"><div style="flex:1;height:7px;background:#D8DDE6;border-radius:4px;overflow:hidden;min-width:70px;"><div style="height:100%;width:'+p+'%;background:'+c+';border-radius:4px;"></div></div><span style="font-size:12px;font-weight:600;color:'+c+';min-width:34px;text-align:right">'+p+'%</span></div>';
+  }
+
+  function metaItem(label,value){
+    return '<div style="display:flex;flex-direction:column;gap:1px;"><span style="font-size:9px;color:#6B7A8D;letter-spacing:2px;text-transform:uppercase;">'+label+'</span><span style="font-size:13px;color:#C8D0DB;font-weight:500;">'+value+'</span></div>';
+  }
+
+  function pageHeader(subtitle, extra){
+    return '<div style="background:#1A1E24;padding:24px 36px 20px;display:flex;justify-content:space-between;align-items:flex-start;"><div><div style="font-family:Barlow Condensed,sans-serif;font-size:11px;font-weight:700;color:#C85A00;letter-spacing:4px;margin-bottom:4px;">D80 SYSTEMS \\xB7 LOW VOLTAGE DIVISION</div><div style="font-family:Barlow Condensed,sans-serif;font-size:28px;font-weight:900;color:#fff;line-height:1;margin-bottom:10px;">'+subtitle+'</div><div style="display:flex;gap:20px;flex-wrap:wrap;">'+extra+'</div></div><div style="text-align:right;"><div style="font-size:10px;color:#4A5568;letter-spacing:1px;margin-bottom:4px;">GENERATED</div><div style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:700;color:#fff;">'+dateStr+'</div><div style="font-size:11px;color:#6B7A8D;margin-top:2px;">'+timeStr+' \\xB7 Kyle Yarbro, LV Supt.</div></div></div><div style="height:4px;background:linear-gradient(90deg,#C85A00,#E8901A);"></div>';
+  }
+
+  function footer(n){
+    return '<div style="background:#1A1E24;padding:12px 36px;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:10px;color:#4A5568;">D80 Systems \\xB7 A Division of South Central Electric \\xB7 CONFIDENTIAL \\xB7 Page '+n+'</div><div style="font-size:10px;color:#4A5568;text-align:right;"><span style="color:#6B7A8D;font-weight:600;">Kyle Yarbro</span> \\xB7 Low Voltage Superintendent \\xB7 KYarbro@D80Systems.com \\xB7 472.272.2064</div></div>';
+  }
+
+  function TH(t,s){ return '<th style="background:#1A1E24;color:#C8D0DB;font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:9px 12px;text-align:left;'+(s||'')+'">'+t+'</th>'; }
+  function TD(t,s){ return '<td style="padding:9px 12px;border-bottom:1px solid #D8DDE6;vertical-align:middle;font-size:13px;'+(s||'')+'">'+t+'</td>'; }
+
+  const proj = db.projects[0];
+  const totalDev = db.devices.length;
+  const doneDev = db.devices.filter(function(d){return (d.stages||[]).every(Boolean);}).length;
+  const projBuildings = sortBuildings(db.buildings.filter(function(b){return b.projectId===proj.id;}));
+
+  var bRows = '';
+  projBuildings.forEach(function(b){
+    var prog=buildingProgress(b.id);
+    var floors=sortFloors(db.floors.filter(function(f){return f.buildingId===b.id;}));
+    bRows += '<tr>'+
+      TD('<div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;">'+escapeHtml(b.name)+'</div><div style="font-size:11px;color:#6B7A8D;margin-top:1px;">'+escapeHtml(b.notes||'')+'</div>')+
+      TD(statusBadge(prog.pct))+
+      TD(floors.length,'text-align:center;')+
+      TD(prog.deviceCount||'—','text-align:center;')+
+      TD(progBar(prog.pct))+
+      '</tr>';
+  });
+
+  var kpis = [
+    ['#1A1E24', projBuildings.length, 'Structures'],
+    ['#1A1E24', totalDev, 'Total Devices'],
+    ['#C85A00', projBuildings.filter(function(b){var p=buildingProgress(b.id).pct;return p>0&&p<100;}).length, 'Bldgs Active'],
+    ['#1A6B3C', projBuildings.filter(function(b){return buildingProgress(b.id).pct===100;}).length, 'Bldgs Complete'],
+    ['#1A6B3C', doneDev, 'Devices Done']
+  ].map(function(k){
+    return '<div style="flex:1;background:#F4F6F9;border:1px solid #D8DDE6;border-radius:4px;padding:16px;text-align:center;"><div style="font-family:Barlow Condensed,sans-serif;font-size:34px;font-weight:900;color:'+k[0]+';line-height:1;margin-bottom:4px;">'+k[1]+'</div><div style="font-size:10px;color:#4A5568;letter-spacing:2px;text-transform:uppercase;">'+k[2]+'</div></div>';
+  }).join('');
+
+  var page1 = '<div style="background:#fff;max-width:960px;margin:0 auto 32px;box-shadow:0 4px 24px rgba(0,0,0,.12);border-radius:3px;overflow:hidden;page-break-after:always;">'+
+    pageHeader('WORK IN PROGRESS REPORT',
+      metaItem('Project',escapeHtml(proj.name))+metaItem('Type',escapeHtml(proj.type||'Multifamily'))+metaItem('Panel','AutoCall 4100ES')+metaItem('Jurisdiction','Southeast US')
+    )+
+    '<div style="padding:28px 36px;border-bottom:1px solid #D8DDE6;">'+
+    '<div style="font-family:Barlow Condensed,sans-serif;font-size:11px;font-weight:700;color:#4A5568;letter-spacing:3px;text-transform:uppercase;margin-bottom:20px;padding-bottom:8px;border-bottom:2px solid #D8DDE6;">Project Overview</div>'+
+    '<div style="display:flex;gap:12px;margin-bottom:28px;">'+kpis+'</div>'+
+    '<table style="width:100%;border-collapse:collapse;"><thead><tr>'+TH('Building')+TH('Status')+TH('Floors','text-align:center;')+TH('Devices','text-align:center;')+TH('Progress')+'</tr></thead><tbody>'+bRows+'</tbody></table>'+
+    '</div>'+footer(1)+'</div>';
+
+  var buildingPages = '';
+  var pageNum = 2;
+
+  projBuildings.forEach(function(building){
+    var bProg = buildingProgress(building.id);
+    if(bProg.deviceCount === 0) return;
+
+    var floors = sortFloors(db.floors.filter(function(f){return f.buildingId===building.id;}));
+    var allBDev = [];
+    floors.forEach(function(f){
+      db.areas.filter(function(a){return a.floorId===f.id;}).forEach(function(a){
+        sortDevices(db.devices.filter(function(d){return d.areaId===a.id;})).forEach(function(d){allBDev.push(d);});
+      });
+    });
+
+    var stageTotals = STAGE_LABELS.map(function(s,si){return allBDev.filter(function(d){return (d.stages||[])[si];}).length;});
+
+    var pills = STAGE_LABELS.map(function(s,si){
+      return '<div style="display:flex;align-items:center;gap:6px;background:#F4F6F9;border:1px solid #D8DDE6;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:500;"><div style="width:8px;height:8px;border-radius:50%;background:'+STAGE_COLORS[si]+';"></div>'+s+': '+stageTotals[si]+'/'+bProg.deviceCount+'</div>';
+    }).join('');
+
+    var floorRows = '';
+    floors.forEach(function(floor){
+      var areas = sortAreas(db.areas.filter(function(a){return a.floorId===floor.id;}));
+      var hasDevices = areas.some(function(a){return db.devices.some(function(d){return d.areaId===a.id;});});
+      if(!hasDevices) return;
+      floorRows += '<tr><td colspan="9" style="background:#2C3440;color:#C8D0DB;font-family:Barlow Condensed,sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:7px 12px;border:none;">'+escapeHtml(floor.name)+'</td></tr>';
+      areas.forEach(function(area){
+        var devices = sortDevices(db.devices.filter(function(d){return d.areaId===area.id;}));
+        if(!devices.length) return;
+        var allDone=devices.every(function(d){return (d.stages||[]).every(Boolean);});
+        var anyDone=devices.some(function(d){return (d.stages||[]).some(Boolean);});
+        var rowBg=allDone?'#F0FAF4':anyDone?'#FFF8F0':'#fff';
+        devices.forEach(function(dev,di){
+          var stages=dev.stages||[false,false,false,false,false];
+          floorRows += '<tr style="background:'+rowBg+';">';
+          if(di===0) floorRows += '<td rowspan="'+devices.length+'" style="padding:9px 12px;border-bottom:1px solid #D8DDE6;vertical-align:middle;font-weight:600;font-size:13px;">'+escapeHtml(area.name)+'</td>';
+          floorRows +=
+            '<td style="padding:9px 12px;border-bottom:1px solid #D8DDE6;font-size:12px;color:#4A5568;">'+escapeHtml(dev.type)+'</td>'+
+            '<td style="padding:9px 12px;border-bottom:1px solid #D8DDE6;font-size:11px;color:#9AA4B2;text-align:center;">'+(di+1<10?'0'+(di+1):di+1)+'</td>'+
+            stages.map(function(s){return '<td style="padding:9px 12px;border-bottom:1px solid #D8DDE6;text-align:center;">'+dot(s)+'</td>';}).join('')+
+            '<td style="padding:9px 12px;border-bottom:1px solid #D8DDE6;font-size:11px;color:#4A5568;font-style:italic;max-width:140px;">'+escapeHtml(dev.notes||'')+'</td>'+
+            '</tr>';
+        });
+      });
+    });
+
+    if(!floorRows) return;
+
+    var totalsRow = '<tr>'+
+      '<td colspan="2" style="padding:9px 12px;background:#1A1E24;color:#C8D0DB;font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;border:none;">'+escapeHtml(building.name.toUpperCase())+' TOTALS</td>'+
+      '<td style="padding:9px 12px;background:#1A1E24;color:#C8D0DB;text-align:center;border:none;">'+bProg.deviceCount+'</td>'+
+      stageTotals.map(function(t,i){return '<td style="padding:9px 12px;background:#1A1E24;color:'+STAGE_COLORS[i]+';font-weight:600;text-align:center;border:none;">'+t+'</td>';}).join('')+
+      '<td style="background:#1A1E24;border:none;"></td></tr>';
+
+    buildingPages += '<div style="background:#fff;max-width:960px;margin:0 auto 32px;box-shadow:0 4px 24px rgba(0,0,0,.12);border-radius:3px;overflow:hidden;page-break-after:always;">'+
+      pageHeader(escapeHtml(building.name)+' — DEVICE STATUS',
+        metaItem('Project',escapeHtml(proj.name))+metaItem('Status',escapeHtml(building.notes||'&mdash;'))+metaItem('Total Devices',bProg.deviceCount)
+      )+
+      '<div style="padding:24px 36px;">'+
+      '<div style="background:#F4F6F9;border:1px solid #D8DDE6;border-radius:4px;padding:16px 20px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">'+
+        '<div><div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:900;">'+escapeHtml(building.name)+'</div>'+
+        '<div style="font-size:12px;color:#4A5568;margin-top:2px;">'+escapeHtml(building.notes||'')+'</div>'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">'+pills+'</div></div>'+
+        '<div style="text-align:right;"><div style="font-family:Barlow Condensed,sans-serif;font-size:36px;font-weight:900;color:'+pctColor(bProg.pct)+';line-height:1;">'+bProg.pct+'%</div>'+
+        '<div style="font-size:10px;color:#4A5568;letter-spacing:2px;">COMPLETE</div></div>'+
+      '</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr>'+
+        TH('Area','width:16%')+TH('Device','width:18%')+TH('#','width:4%;text-align:center;')+
+        STAGE_LABELS.map(function(s){return TH(s,'width:9%;text-align:center;');}).join('')+TH('Notes','width:14%')+
+      '</tr></thead><tbody>'+floorRows+totalsRow+'</tbody></table>'+
+      '</div>'+footer(pageNum++)+'</div>';
+  });
+
+  var html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">'+
+    '<title>D80 Systems — WIP Report '+dateStr+'</title>'+
+    '<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">'+
+    '<style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#E8EAF0;font-family:Barlow,sans-serif;color:#1A1E24;padding:24px 16px;}table{width:100%;border-collapse:collapse;}@media print{body{background:#fff;padding:0;}.no-print{display:none;}}</style>'+
+    '</head><body>'+
+    '<div class="no-print" style="max-width:960px;margin:0 auto 16px;display:flex;justify-content:space-between;align-items:center;">'+
+    '<span style="font-size:13px;color:#4A5568;">D80 Systems WIP Report · '+dateStr+' · '+timeStr+'</span>'+
+    '<button onclick="window.print()" style="background:#C85A00;color:#fff;border:none;border-radius:4px;padding:10px 24px;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:1px;">🖨 PRINT / SAVE PDF</button>'+
+    '</div>'+page1+buildingPages+'</body></html>';
+
+  var w = window.open('','_blank');
+  if(w){ w.document.write(html); w.document.close(); }
+  else { alert('Please allow popups for this site to generate the report.'); }
+}
+
+function escStr(s) {
+  return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+function escapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function attachEvents() {
+  document.onkeydown = (e) => {
+    if (e.key === 'Escape') { state.modal = null; state.confirm = null; render(); }
+    if (e.key === 'Enter' && state.modal) {
+      const { type, parentId } = state.modal;
+      saveModal(type, parentId || '');
+    }
+  };
+}
+
+function addDevice(db, areaId, type, location) {
+  db.devices.push({
+    id: uid(), areaId, type, location,
+    stages: [false,false,false,false,false],
+    notes: '', createdAt: Date.now()
+  });
+}
+
+function seedEastfield() {
+  const db = DB.get();
+  if (db.projects.length > 0) return;
+
+  const pid = uid();
+  db.projects.push({
+    id: pid, name: 'Eastfield Village', type: 'Multifamily',
+    notes: 'Southeast US · AutoCall 4100ES · 12 Buildings + Clubhouse',
+    createdAt: Date.now()
+  });
+
+  const b1id = uid();
+  db.buildings.push({ id: b1id, projectId: pid, name: 'Building 1', notes: '3-story · Roughed in · Close-in inspection active', createdAt: Date.now() });
+
+  const floorDefs = [
+    { name: 'Floor 1', unitPrefix: 1, stairPrefix: '1' },
+    { name: 'Floor 2', unitPrefix: 2, stairPrefix: '2' },
+    { name: 'Floor 3', unitPrefix: 3, stairPrefix: '3' }
+  ];
+
+  floorDefs.forEach(({ name: floorName, unitPrefix, stairPrefix }) => {
+    const fid = uid();
+    db.floors.push({ id: fid, buildingId: b1id, name: floorName, createdAt: Date.now() });
+
+    const floorNum = unitPrefix;
+
+    for (let u = 1; u <= 12; u++) {
+      const unitNum = (unitPrefix * 100) + u;
+      const isOdd = u % 2 !== 0;
+      const hornCount = isOdd ? 2 : 3;
+      const aid = uid();
+      db.areas.push({ id: aid, floorId: fid, name: `Unit ${unitNum}`, createdAt: Date.now() });
+      for (let h = 0; h < hornCount; h++) {
+        addDevice(db, aid, 'Horn/Strobe', `Unit ${unitNum} — #${h + 1}`);
+      }
+    }
+
+    for (let s = 1; s <= 3; s++) {
+      const aid = uid();
+      db.areas.push({ id: aid, floorId: fid, name: `Stairwell ${s}`, createdAt: Date.now() });
+      addDevice(db, aid, 'Horn/Strobe', `Stairwell ${s} — Floor ${floorNum}`);
+      if (floorNum === 1) {
+        addDevice(db, aid, 'Pull Station', `Stairwell ${s} — Floor 1 entry`);
+      }
+    }
+  });
+
+  const otherBuildings = [
+    { name: 'Building 2',  notes: '3-story · Roughed in' },
+    { name: 'Building 3',  notes: '3-story · Roughed in' },
+    { name: 'Building 4',  notes: '3-story · Framed' },
+    { name: 'Building 5',  notes: '3-story · ~50% framed' },
+    { name: 'Building 6',  notes: '3-story · ~50% framed' },
+    { name: 'Building 7',  notes: '3-story · Not started' },
+    { name: 'Building 8',  notes: '3-story · Not started' },
+    { name: 'Building 9',  notes: '3-story · Not started' },
+    { name: 'Building 10', notes: '3-story · Not started' },
+    { name: 'Building 11', notes: '3-story · Not started' },
+    { name: 'Building 12', notes: '3-story · Not started' },
+    { name: 'Clubhouse',   notes: 'Common area · Not started' }
+  ];
+
+  otherBuildings.forEach(b => {
+    const bid = uid();
+    db.buildings.push({ id: bid, projectId: pid, name: b.name, notes: b.notes, createdAt: Date.now() });
+    ['Floor 1','Floor 2','Floor 3'].forEach(fn => {
+      db.floors.push({ id: uid(), buildingId: bid, name: fn, createdAt: Date.now() });
+    });
+  });
+
+
+
+  db.inspections.push({
+    id: uid(), scopeType: 'building', scopeId: b1id,
+    type: 'Close-in Inspection', date: todayISO(), status: 'Ready',
+    ahj: 'County Fire Marshal', notes: 'Building 1 rough-in readiness tracker', createdAt: Date.now()
+  });
+  db.deficiencies.push({
+    id: uid(), scopeType: 'building', scopeId: b1id,
+    title: 'Verify fire caulk at FA wire penetrations', priority: 'High', status: 'Open', owner: 'D80 / Electrical', dueDate: todayISO(),
+    notes: 'Top plate / unit separator penetrations need eyes before inspection.', createdAt: Date.now()
+  });
+
+  db.inspections = db.inspections || [];
+  db.deficiencies = db.deficiencies || [];
+  db.materials = db.materials || [];
+  db.crewLogs = db.crewLogs || [];
+
+  db.inspections.push({
+    id: uid(),
+    scopeType: 'building',
+    scopeId: b1id,
+    type: 'Close-in',
+    date: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+    status: 'Scheduled',
+    inspector: 'AHJ / Inspector TBD',
+    notes: 'Building 1 rough-in readiness check.',
+    createdAt: Date.now()
+  });
+
+  db.deficiencies.push({
+    id: uid(),
+    scopeType: 'building',
+    scopeId: b1id,
+    title: 'Verify all fire caulk above unit penetrations',
+    priority: 'High',
+    status: 'Open',
+    owner: 'D80 / Firestop',
+    notes: 'Verify prior to inspection.',
+    createdAt: Date.now()
+  });
+
+  db.materials.push({
+    id: uid(),
+    scopeType: 'building',
+    scopeId: b1id,
+    item: 'Fire caulk',
+    qtyNeeded: 12,
+    qtyOnHand: 0,
+    date: new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
+    status: 'Needed',
+    notes: 'Needed for top plate / unit penetrations.',
+    createdAt: Date.now()
+  });
+
+  db.crewLogs.push({
+    id: uid(),
+    scopeType: 'building',
+    scopeId: b1id,
+    date: new Date().toISOString().split('T')[0],
+    crewCount: 0,
+    owner: 'D80',
+    notes: 'Initial crew log entry.',
+    createdAt: Date.now()
+  });
+
+  DB.set(db);
+}
+
+seedEastfield();
+initSupabaseAuth().then(() => render());
+</script>
+</body>
+</html>
