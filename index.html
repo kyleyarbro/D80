@@ -2983,81 +2983,117 @@ function generateReport() {
     '<table style="width:100%;border-collapse:collapse;"><thead><tr>'+TH('Building')+TH('Status')+TH('Floors','text-align:center;')+TH('Devices','text-align:center;')+TH('Progress')+'</tr></thead><tbody>'+bRows+'</tbody></table>'+
     '</div>'+footer(1)+'</div>';
 
+  
   var buildingPages = '';
   var pageNum = 2;
 
   projBuildings.forEach(function(building){
+
     var bProg = buildingProgress(building.id);
     if(bProg.deviceCount === 0) return;
 
     var floors = sortFloors(db.floors.filter(function(f){return f.buildingId===building.id;}));
-    var allBDev = [];
-    floors.forEach(function(f){
-      db.areas.filter(function(a){return a.floorId===f.id;}).forEach(function(a){
-        sortDevices(db.devices.filter(function(d){return d.areaId===a.id;})).forEach(function(d){allBDev.push(d);});
-      });
-    });
 
-    var stageTotals = STAGE_LABELS.map(function(s,si){return allBDev.filter(function(d){return (d.stages||[])[si];}).length;});
-
-    var pills = STAGE_LABELS.map(function(s,si){
-      return '<div style="display:flex;align-items:center;gap:6px;background:#F4F6F9;border:1px solid #D8DDE6;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:500;"><div style="width:8px;height:8px;border-radius:50%;background:'+STAGE_COLORS[si]+';"></div>'+s+': '+stageTotals[si]+'/'+bProg.deviceCount+'</div>';
-    }).join('');
-
+    var stageTotals = [0,0,0,0,0];
     var floorRows = '';
+
     floors.forEach(function(floor){
+
       var areas = sortAreas(db.areas.filter(function(a){return a.floorId===floor.id;}));
-      var hasDevices = areas.some(function(a){return db.devices.some(function(d){return d.areaId===a.id;});});
-      if(!hasDevices) return;
-      floorRows += '<tr><td colspan="9" style="background:#2C3440;color:#C8D0DB;font-family:Barlow Condensed,sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:7px 12px;border:none;">'+escapeHtml(floor.name)+'</td></tr>';
+      var floorDevices = [];
+
       areas.forEach(function(area){
-        var devices = sortDevices(db.devices.filter(function(d){return d.areaId===area.id;}));
-        if(!devices.length) return;
-        var allDone=devices.every(function(d){return (d.stages||[]).every(Boolean);});
-        var anyDone=devices.some(function(d){return (d.stages||[]).some(Boolean);});
-        var rowBg=allDone?'#F0FAF4':anyDone?'#FFF8F0':'#fff';
-        devices.forEach(function(dev,di){
-          var stages=dev.stages||[false,false,false,false,false];
-          floorRows += '<tr style="background:'+rowBg+';">';
-          if(di===0) floorRows += '<td rowspan="'+devices.length+'" style="padding:9px 12px;border-bottom:1px solid #D8DDE6;vertical-align:middle;font-weight:600;font-size:13px;">'+escapeHtml(area.name)+'</td>';
-          floorRows +=
-            '<td style="padding:9px 12px;border-bottom:1px solid #D8DDE6;font-size:12px;color:#4A5568;">'+escapeHtml(dev.type)+'</td>'+
-            '<td style="padding:9px 12px;border-bottom:1px solid #D8DDE6;font-size:11px;color:#9AA4B2;text-align:center;">'+(di+1<10?'0'+(di+1):di+1)+'</td>'+
-            stages.map(function(s){return '<td style="padding:9px 12px;border-bottom:1px solid #D8DDE6;text-align:center;">'+dot(s)+'</td>';}).join('')+
-            '<td style="padding:9px 12px;border-bottom:1px solid #D8DDE6;font-size:11px;color:#4A5568;font-style:italic;max-width:140px;">'+escapeHtml(dev.notes||'')+'</td>'+
-            '</tr>';
+        sortDevices(db.devices.filter(function(d){return d.areaId===area.id;})).forEach(function(dev){
+          floorDevices.push(dev);
         });
       });
+
+      if(!floorDevices.length) return;
+
+      var floorStageCounts = [0,0,0,0,0];
+
+      floorDevices.forEach(function(dev){
+        var stages = dev.stages || [false,false,false,false,false];
+
+        stages.forEach(function(done, idx){
+          if(done){
+            floorStageCounts[idx]++;
+            stageTotals[idx]++;
+          }
+        });
+      });
+
+      var totalStages = floorDevices.length * 5;
+      var completedStages = floorStageCounts.reduce(function(a,b){ return a+b; },0);
+      var pct = totalStages ? Math.round((completedStages / totalStages) * 100) : 0;
+
+      floorRows += '<tr>' +
+        TD('<div style="font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:700;">'+floor.name+'</div>') +
+        TD(floorDevices.length, 'text-align:center;font-weight:600;') +
+        TD(floorStageCounts[0] + '/' + floorDevices.length, 'text-align:center;color:#3498DB;font-weight:600;') +
+        TD(floorStageCounts[1] + '/' + floorDevices.length, 'text-align:center;color:#C85A00;font-weight:600;') +
+        TD(floorStageCounts[2] + '/' + floorDevices.length, 'text-align:center;color:#D4A010;font-weight:600;') +
+        TD(floorStageCounts[3] + '/' + floorDevices.length, 'text-align:center;color:#7B4FB0;font-weight:600;') +
+        TD(floorStageCounts[4] + '/' + floorDevices.length, 'text-align:center;color:#1A6B3C;font-weight:600;') +
+        TD(progBar(pct)) +
+      '</tr>';
     });
 
-    if(!floorRows) return;
-
-    var totalsRow = '<tr>'+
-      '<td colspan="2" style="padding:9px 12px;background:#1A1E24;color:#C8D0DB;font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;border:none;">'+escapeHtml(building.name.toUpperCase())+' TOTALS</td>'+
-      '<td style="padding:9px 12px;background:#1A1E24;color:#C8D0DB;text-align:center;border:none;">'+bProg.deviceCount+'</td>'+
-      stageTotals.map(function(t,i){return '<td style="padding:9px 12px;background:#1A1E24;color:'+STAGE_COLORS[i]+';font-weight:600;text-align:center;border:none;">'+t+'</td>';}).join('')+
-      '<td style="background:#1A1E24;border:none;"></td></tr>';
+    var totalsRow = '<tr>' +
+      '<td style="padding:11px 12px;background:#1A1E24;color:#fff;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;border:none;">TOTALS</td>' +
+      '<td style="padding:11px 12px;background:#1A1E24;color:#fff;text-align:center;border:none;font-weight:700;">'+bProg.deviceCount+'</td>' +
+      '<td style="padding:11px 12px;background:#1A1E24;color:#3498DB;text-align:center;border:none;font-weight:700;">'+stageTotals[0]+'</td>' +
+      '<td style="padding:11px 12px;background:#1A1E24;color:#C85A00;text-align:center;border:none;font-weight:700;">'+stageTotals[1]+'</td>' +
+      '<td style="padding:11px 12px;background:#1A1E24;color:#D4A010;text-align:center;border:none;font-weight:700;">'+stageTotals[2]+'</td>' +
+      '<td style="padding:11px 12px;background:#1A1E24;color:#7B4FB0;text-align:center;border:none;font-weight:700;">'+stageTotals[3]+'</td>' +
+      '<td style="padding:11px 12px;background:#1A1E24;color:#1A6B3C;text-align:center;border:none;font-weight:700;">'+stageTotals[4]+'</td>' +
+      '<td style="padding:11px 12px;background:#1A1E24;color:#fff;text-align:center;border:none;font-weight:700;">'+bProg.pct+'%</td>' +
+    '</tr>';
 
     buildingPages += '<div style="background:#fff;max-width:960px;margin:0 auto 32px;box-shadow:0 4px 24px rgba(0,0,0,.12);border-radius:3px;overflow:hidden;page-break-after:always;">'+
-      pageHeader(escapeHtml(building.name)+' — DEVICE STATUS',
-        metaItem('Project',escapeHtml(proj.name))+metaItem('Status',escapeHtml(building.notes||'&mdash;'))+metaItem('Total Devices',bProg.deviceCount)
+      pageHeader(building.name+' — FLOOR STATUS',
+        metaItem('Project',proj.name)+
+        metaItem('Building Progress',bProg.pct + '%')+
+        metaItem('Total Devices',bProg.deviceCount)
       )+
-      '<div style="padding:24px 36px;">'+
-      '<div style="background:#F4F6F9;border:1px solid #D8DDE6;border-radius:4px;padding:16px 20px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">'+
-        '<div><div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:900;">'+escapeHtml(building.name)+'</div>'+
-        '<div style="font-size:12px;color:#4A5568;margin-top:2px;">'+escapeHtml(building.notes||'')+'</div>'+
-        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">'+pills+'</div></div>'+
-        '<div style="text-align:right;"><div style="font-family:Barlow Condensed,sans-serif;font-size:36px;font-weight:900;color:'+pctColor(bProg.pct)+';line-height:1;">'+bProg.pct+'%</div>'+
-        '<div style="font-size:10px;color:#4A5568;letter-spacing:2px;">COMPLETE</div></div>'+
+
+      '<div style="padding:28px 36px;">'+
+
+      '<div style="background:#F4F6F9;border:1px solid #D8DDE6;border-radius:5px;padding:18px 20px;margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;">'+
+        '<div>'+
+          '<div style="font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:900;color:#1A1E24;">'+building.name+'</div>'+
+          '<div style="font-size:12px;color:#4A5568;margin-top:4px;">'+(building.notes || '')+'</div>'+
+        '</div>'+
+        '<div style="text-align:right;">'+
+          '<div style="font-family:Barlow Condensed,sans-serif;font-size:42px;font-weight:900;color:'+pctColor(bProg.pct)+';">'+bProg.pct+'%</div>'+
+          '<div style="font-size:10px;color:#6B7A8D;letter-spacing:2px;">OVERALL COMPLETE</div>'+
+        '</div>'+
       '</div>'+
-      '<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr>'+
-        TH('Area','width:16%')+TH('Device','width:18%')+TH('#','width:4%;text-align:center;')+
-        STAGE_LABELS.map(function(s){return TH(s,'width:9%;text-align:center;');}).join('')+TH('Notes','width:14%')+
-      '</tr></thead><tbody>'+floorRows+totalsRow+'</tbody></table>'+
-      '</div>'+footer(pageNum++)+'</div>';
+
+      '<table style="width:100%;border-collapse:collapse;">'+
+        '<thead><tr>'+
+          TH('Floor')+
+          TH('Devices','text-align:center;')+
+          TH('Boxed','text-align:center;')+
+          TH('Wired','text-align:center;')+
+          TH('Res. Test','text-align:center;')+
+          TH('Device','text-align:center;')+
+          TH('Tested','text-align:center;')+
+          TH('Progress')+
+        '</tr></thead>'+
+        '<tbody>'+
+          floorRows +
+          totalsRow +
+        '</tbody>'+
+      '</table>'+
+
+      '</div>' +
+      footer(pageNum++) +
+    '</div>';
+
   });
 
-  var html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">'+
+var html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">'+
     '<title>D80 Systems — WIP Report '+dateStr+'</title>'+
     '<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">'+
     '<style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#E8EAF0;font-family:Barlow,sans-serif;color:#1A1E24;padding:24px 16px;}table{width:100%;border-collapse:collapse;}@media print{body{background:#fff;padding:0;}.no-print{display:none;}}</style>'+
