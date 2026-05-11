@@ -407,8 +407,10 @@ function buildHeader() {
       </div>
       <div class="header-right">
         <span style="font-size:11px;color:var(--text-muted)">${doneDevices}/${totalDevices} DEV</span>
+        <button class="icon-btn" onclick="generateReport()" style="border-color:#3498db;color:#3498db;">📄 REPORT</button>
         <button class="icon-btn" onclick="exportData()">⬇ EXPORT</button>
         <button class="icon-btn" onclick="importTrigger()">⬆ IMPORT</button>
+        <button class="icon-btn" onclick="resetData()" style="border-color:#e74c3c;color:#e74c3c;">↺ RESET</button>
         <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
       </div>
     </div>
@@ -836,6 +838,14 @@ URL.revokeObjectURL(url);
 
 function importTrigger() { document.getElementById(‘import-file’).click(); }
 
+function resetData() {
+state.confirm = {
+msg: ‘Clear ALL data and reload Eastfield Village seed? Export first to save anything.’,
+onConfirm: () => { localStorage.clear(); location.reload(); }
+};
+render();
+}
+
 function importData(e) {
 const file = e.target.files[0];
 if (!file) return;
@@ -848,6 +858,183 @@ render();
 } catch { alert(‘Invalid file.’); }
 };
 reader.readAsText(file);
+}
+
+// ============================================================
+// REPORT GENERATOR
+// ============================================================
+function generateReport() {
+const db = DB.get();
+const now = new Date();
+const dateStr = now.toLocaleDateString(‘en-US’, { month:‘long’, day:‘numeric’, year:‘numeric’ });
+const timeStr = now.toLocaleTimeString(‘en-US’, { hour:‘2-digit’, minute:‘2-digit’ });
+const STAGE_LABELS = [‘Boxed’,‘Wired’,‘Res. Test’,‘Device’,‘Tested’];
+const STAGE_COLORS = [’#3498DB’,’#C85A00’,’#D4A010’,’#7B4FB0’,’#1A6B3C’];
+
+function pctColor(p){return p===100?’#1A6B3C’:p>0?’#C85A00’:’#9AA4B2’;}
+
+function statusBadge(p){
+if(p===100) return ‘<span style="display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:3px;letter-spacing:1px;background:#E8F5EE;color:#1A6B3C;border:1px solid #70C090">COMPLETE</span>’;
+if(p>0)     return ‘<span style="display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:3px;letter-spacing:1px;background:#FFF0E6;color:#C85A00;border:1px solid #F0A060">ACTIVE</span>’;
+return ‘<span style="display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:3px;letter-spacing:1px;background:#F4F6F9;color:#4A5568;border:1px solid #D8DDE6">PENDING</span>’;
+}
+
+function dot(done){
+return done
+? ‘<div style="display:inline-block;width:16px;height:16px;border-radius:50%;background:#1A6B3C;border:2px solid #1A6B3C;"></div>’
+: ‘<div style="display:inline-block;width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid #D8DDE6;"></div>’;
+}
+
+function progBar(p){
+const c=pctColor(p);
+return ‘<div style="display:flex;align-items:center;gap:8px;"><div style="flex:1;height:7px;background:#D8DDE6;border-radius:4px;overflow:hidden;min-width:70px;"><div style="height:100%;width:'+p+'%;background:'+c+';border-radius:4px;"></div></div><span style="font-size:12px;font-weight:600;color:'+c+';min-width:34px;text-align:right">’+p+’%</span></div>’;
+}
+
+function metaItem(label,value){
+return ‘<div style="display:flex;flex-direction:column;gap:1px;"><span style="font-size:9px;color:#6B7A8D;letter-spacing:2px;text-transform:uppercase;">’+label+’</span><span style="font-size:13px;color:#C8D0DB;font-weight:500;">’+value+’</span></div>’;
+}
+
+function pageHeader(subtitle, extra){
+return ‘<div style="background:#1A1E24;padding:24px 36px 20px;display:flex;justify-content:space-between;align-items:flex-start;"><div><div style="font-family:Barlow Condensed,sans-serif;font-size:11px;font-weight:700;color:#C85A00;letter-spacing:4px;margin-bottom:4px;">D80 SYSTEMS \xB7 LOW VOLTAGE DIVISION</div><div style="font-family:Barlow Condensed,sans-serif;font-size:28px;font-weight:900;color:#fff;line-height:1;margin-bottom:10px;">’+subtitle+’</div><div style="display:flex;gap:20px;flex-wrap:wrap;">’+extra+’</div></div><div style="text-align:right;"><div style="font-size:10px;color:#4A5568;letter-spacing:1px;margin-bottom:4px;">GENERATED</div><div style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:700;color:#fff;">’+dateStr+’</div><div style="font-size:11px;color:#6B7A8D;margin-top:2px;">’+timeStr+’ \xB7 Kyle Yarbro, LV Supt.</div></div></div><div style="height:4px;background:linear-gradient(90deg,#C85A00,#E8901A);"></div>’;
+}
+
+function footer(n){
+return ‘<div style="background:#1A1E24;padding:12px 36px;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:10px;color:#4A5568;">D80 Systems \xB7 A Division of South Central Electric \xB7 CONFIDENTIAL \xB7 Page ‘+n+’</div><div style="font-size:10px;color:#4A5568;text-align:right;"><span style="color:#6B7A8D;font-weight:600;">Kyle Yarbro</span> \xB7 Low Voltage Superintendent \xB7 KYarbro@D80Systems.com \xB7 472.272.2064</div></div>’;
+}
+
+function TH(t,s){ return ‘<th style="background:#1A1E24;color:#C8D0DB;font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:9px 12px;text-align:left;'+(s||'')+'">’+t+’</th>’; }
+function TD(t,s){ return ‘<td style="padding:9px 12px;border-bottom:1px solid #D8DDE6;vertical-align:middle;font-size:13px;'+(s||'')+'">’+t+’</td>’; }
+
+const proj = db.projects[0];
+const totalDev = db.devices.length;
+const doneDev = db.devices.filter(function(d){return (d.stages||[]).every(Boolean);}).length;
+const projBuildings = db.buildings.filter(function(b){return b.projectId===proj.id;});
+
+// PAGE 1 — SUMMARY
+var bRows = ‘’;
+projBuildings.forEach(function(b){
+var prog=buildingProgress(b.id);
+var floors=db.floors.filter(function(f){return f.buildingId===b.id;});
+bRows += ‘<tr>’+
+TD(’<div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;">’+b.name+’</div><div style="font-size:11px;color:#6B7A8D;margin-top:1px;">’+(b.notes||’’)+’</div>’)+
+TD(statusBadge(prog.pct))+
+TD(floors.length,‘text-align:center;’)+
+TD(prog.deviceCount||’—’,‘text-align:center;’)+
+TD(progBar(prog.pct))+
+‘</tr>’;
+});
+
+var kpis = [
+[’#1A1E24’, projBuildings.length, ‘Structures’],
+[’#1A1E24’, totalDev, ‘Total Devices’],
+[’#C85A00’, projBuildings.filter(function(b){var p=buildingProgress(b.id).pct;return p>0&&p<100;}).length, ‘Bldgs Active’],
+[’#1A6B3C’, projBuildings.filter(function(b){return buildingProgress(b.id).pct===100;}).length, ‘Bldgs Complete’],
+[’#1A6B3C’, doneDev, ‘Devices Done’],
+].map(function(k){
+return ‘<div style="flex:1;background:#F4F6F9;border:1px solid #D8DDE6;border-radius:4px;padding:16px;text-align:center;"><div style="font-family:Barlow Condensed,sans-serif;font-size:34px;font-weight:900;color:'+k[0]+';line-height:1;margin-bottom:4px;">’+k[1]+’</div><div style="font-size:10px;color:#4A5568;letter-spacing:2px;text-transform:uppercase;">’+k[2]+’</div></div>’;
+}).join(’’);
+
+var page1 = ‘<div style="background:#fff;max-width:960px;margin:0 auto 32px;box-shadow:0 4px 24px rgba(0,0,0,.12);border-radius:3px;overflow:hidden;page-break-after:always;">’+
+pageHeader(‘WORK IN PROGRESS REPORT’,
+metaItem(‘Project’,proj.name)+metaItem(‘Type’,proj.type||‘Multifamily’)+metaItem(‘Panel’,‘AutoCall 4100ES’)+metaItem(‘Jurisdiction’,‘Southeast US’)
+)+
+‘<div style="padding:28px 36px;border-bottom:1px solid #D8DDE6;">’+
+‘<div style="font-family:Barlow Condensed,sans-serif;font-size:11px;font-weight:700;color:#4A5568;letter-spacing:3px;text-transform:uppercase;margin-bottom:20px;padding-bottom:8px;border-bottom:2px solid #D8DDE6;">Project Overview</div>’+
+‘<div style="display:flex;gap:12px;margin-bottom:28px;">’+kpis+’</div>’+
+‘<table style="width:100%;border-collapse:collapse;"><thead><tr>’+TH(‘Building’)+TH(‘Status’)+TH(‘Floors’,‘text-align:center;’)+TH(‘Devices’,‘text-align:center;’)+TH(‘Progress’)+’</tr></thead><tbody>’+bRows+’</tbody></table>’+
+‘</div>’+footer(1)+’</div>’;
+
+// PAGES 2+ — PER BUILDING
+var buildingPages = ‘’;
+var pageNum = 2;
+
+projBuildings.forEach(function(building){
+var bProg = buildingProgress(building.id);
+if(bProg.deviceCount === 0) return;
+
+```
+var floors = db.floors.filter(function(f){return f.buildingId===building.id;});
+var allBDev = [];
+floors.forEach(function(f){
+  db.areas.filter(function(a){return a.floorId===f.id;}).forEach(function(a){
+    db.devices.filter(function(d){return d.areaId===a.id;}).forEach(function(d){allBDev.push(d);});
+  });
+});
+
+var stageTotals = STAGE_LABELS.map(function(s,si){return allBDev.filter(function(d){return (d.stages||[])[si];}).length;});
+
+var pills = STAGE_LABELS.map(function(s,si){
+  return '<div style="display:flex;align-items:center;gap:6px;background:#F4F6F9;border:1px solid #D8DDE6;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:500;"><div style="width:8px;height:8px;border-radius:50%;background:'+STAGE_COLORS[si]+';"></div>'+s+': '+stageTotals[si]+'/'+bProg.deviceCount+'</div>';
+}).join('');
+
+var floorRows = '';
+floors.forEach(function(floor){
+  var areas = db.areas.filter(function(a){return a.floorId===floor.id;});
+  var hasDevices = areas.some(function(a){return db.devices.some(function(d){return d.areaId===a.id;});});
+  if(!hasDevices) return;
+  floorRows += '<tr><td colspan="9" style="background:#2C3440;color:#C8D0DB;font-family:Barlow Condensed,sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:7px 12px;border:none;">'+floor.name+'</td></tr>';
+  areas.forEach(function(area){
+    var devices = db.devices.filter(function(d){return d.areaId===area.id;});
+    if(!devices.length) return;
+    var allDone=devices.every(function(d){return (d.stages||[]).every(Boolean);});
+    var anyDone=devices.some(function(d){return (d.stages||[]).some(Boolean);});
+    var rowBg=allDone?'#F0FAF4':anyDone?'#FFF8F0':'#fff';
+    devices.forEach(function(dev,di){
+      var stages=dev.stages||[false,false,false,false,false];
+      floorRows += '<tr style="background:'+rowBg+';">';
+      if(di===0) floorRows += '<td rowspan="'+devices.length+'" style="padding:9px 12px;border-bottom:1px solid #D8DDE6;vertical-align:middle;font-weight:600;font-size:13px;">'+area.name+'</td>';
+      floorRows +=
+        '<td style="padding:9px 12px;border-bottom:1px solid #D8DDE6;font-size:12px;color:#4A5568;">'+dev.type+'</td>'+
+        '<td style="padding:9px 12px;border-bottom:1px solid #D8DDE6;font-size:11px;color:#9AA4B2;text-align:center;">'+(di+1<10?'0'+(di+1):di+1)+'</td>'+
+        stages.map(function(s){return '<td style="padding:9px 12px;border-bottom:1px solid #D8DDE6;text-align:center;">'+dot(s)+'</td>';}).join('')+
+        '<td style="padding:9px 12px;border-bottom:1px solid #D8DDE6;font-size:11px;color:#4A5568;font-style:italic;max-width:140px;">'+(dev.notes||'')+'</td>'+
+        '</tr>';
+    });
+  });
+});
+
+if(!floorRows) return;
+
+var totalsRow = '<tr>'+
+  '<td colspan="2" style="padding:9px 12px;background:#1A1E24;color:#C8D0DB;font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;border:none;">'+building.name.toUpperCase()+' TOTALS</td>'+
+  '<td style="padding:9px 12px;background:#1A1E24;color:#C8D0DB;text-align:center;border:none;">'+bProg.deviceCount+'</td>'+
+  stageTotals.map(function(t,i){return '<td style="padding:9px 12px;background:#1A1E24;color:'+STAGE_COLORS[i]+';font-weight:600;text-align:center;border:none;">'+t+'</td>';}).join('')+
+  '<td style="background:#1A1E24;border:none;"></td></tr>';
+
+buildingPages += '<div style="background:#fff;max-width:960px;margin:0 auto 32px;box-shadow:0 4px 24px rgba(0,0,0,.12);border-radius:3px;overflow:hidden;page-break-after:always;">'+
+  pageHeader(building.name+' \u2014 DEVICE STATUS',
+    metaItem('Project',proj.name)+metaItem('Status',building.notes||'&mdash;')+metaItem('Total Devices',bProg.deviceCount)
+  )+
+  '<div style="padding:24px 36px;">'+
+  '<div style="background:#F4F6F9;border:1px solid #D8DDE6;border-radius:4px;padding:16px 20px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">'+
+    '<div><div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:900;">'+building.name+'</div>'+
+    '<div style="font-size:12px;color:#4A5568;margin-top:2px;">'+(building.notes||'')+'</div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">'+pills+'</div></div>'+
+    '<div style="text-align:right;"><div style="font-family:Barlow Condensed,sans-serif;font-size:36px;font-weight:900;color:'+pctColor(bProg.pct)+';line-height:1;">'+bProg.pct+'%</div>'+
+    '<div style="font-size:10px;color:#4A5568;letter-spacing:2px;">COMPLETE</div></div>'+
+  '</div>'+
+  '<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr>'+
+    TH('Area','width:16%')+TH('Device','width:18%')+TH('#','width:4%;text-align:center;')+
+    STAGE_LABELS.map(function(s){return TH(s,'width:9%;text-align:center;');}).join('')+TH('Notes','width:14%')+
+  '</tr></thead><tbody>'+floorRows+totalsRow+'</tbody></table>'+
+  '</div>'+footer(pageNum++)+'</div>';
+```
+
+});
+
+var html = ‘<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">’+
+‘<title>D80 Systems \u2014 WIP Report ‘+dateStr+’</title>’+
+‘<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">’+
+‘<style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#E8EAF0;font-family:Barlow,sans-serif;color:#1A1E24;padding:24px 16px;}table{width:100%;border-collapse:collapse;}@media print{body{background:#fff;padding:0;}.no-print{display:none;}}</style>’+
+‘</head><body>’+
+‘<div class="no-print" style="max-width:960px;margin:0 auto 16px;display:flex;justify-content:space-between;align-items:center;">’+
+‘<span style="font-size:13px;color:#4A5568;">D80 Systems WIP Report \xB7 ‘+dateStr+’ \xB7 ‘+timeStr+’</span>’+
+‘<button onclick="window.print()" style="background:#C85A00;color:#fff;border:none;border-radius:4px;padding:10px 24px;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:1px;">\uD83D\uDDA8 PRINT / SAVE PDF</button>’+
+‘</div>’+page1+buildingPages+’</body></html>’;
+
+var w = window.open(’’,’_blank’);
+if(w){ w.document.write(html); w.document.close(); }
+else { alert(‘Please allow popups for this site to generate the report.’); }
 }
 
 function escStr(s) { return (s||’’).replace(/’/g,”\’”).replace(/”/g,’"’); }
